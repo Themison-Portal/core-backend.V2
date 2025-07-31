@@ -161,17 +161,16 @@ class DocumentService(IDocumentService):
         
         try:
             # Step 1: Parse PDF from URL
+            print("step 1")
             content = await self.parse_pdf(document_url)
             document_filename = document_url.split("/")[-1]
             
             # Step 2: Preprocess content
+            print("step 2")
             preprocessed_content = await self.preprocess_content(content)
             
-            
-            # Step 3: Generate embeddings
-            embeddings = await self.generate_embeddings(preprocessed_content)
-            
-            # Step 4: Chunk content
+            # Step 3: Chunk content first
+            print("step 3")
             metadata = {"filename": document_filename, "content_type": "application/pdf"}
             chunks = await self.chunk_content(
                 preprocessed_content, 
@@ -179,12 +178,13 @@ class DocumentService(IDocumentService):
                 chunk_size, 
             )
             
-            #Step 4: Embeddings chunks mapping
-            chunk_embeddings = []
-            for chunk in chunks:
-                chunk_embeddings.append(embeddings[chunk.chunk_index : chunk.chunk_index + chunk_size])
+            # Step 4: Generate embeddings for each chunk
+            print("step 4")
+            chunk_texts = [chunk.page_content for chunk in chunks]
+            chunk_embeddings = await self.generate_embeddings(chunks)
             
             # Step 5: Process existing document and add chunks
+            print("step 5")
             document_title = document_filename or "Untitled Document"
             result = await self.insert_document_with_chunks(
                 title=document_title,
