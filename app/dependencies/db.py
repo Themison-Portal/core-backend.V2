@@ -8,8 +8,8 @@ from app.models.base import Base
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency for getting async database session"""
-    async with engine().begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all, checkfirst=True)
         db = async_session()
         try:
             yield db
