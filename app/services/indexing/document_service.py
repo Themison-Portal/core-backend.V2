@@ -85,7 +85,7 @@ class DocumentService(IDocumentService):
         
         texts = [chunk.page_content for chunk in chunks]
         
-        embeddings = self.embedding_provider.get_embeddings_batch(texts)
+        embeddings = await self.embedding_provider.get_embeddings_batch(texts)
         
         return embeddings
     
