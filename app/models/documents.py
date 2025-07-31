@@ -28,3 +28,6 @@ class Document(Base):
     updated_at: Mapped[DateTime] = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
     chat_sessions: Mapped[list["ChatSession"]] = relationship("ChatSession", secondary="chat_document_links", back_populates="documents")
     
+    # Relationship to document chunks
+    chunks: Mapped[list["DocumentChunk"]] = relationship("DocumentChunk", back_populates="document")
+    
