@@ -19,11 +19,12 @@ from app.db.session import engine
 from app.models.base import Base
 from app.models.chunks import DocumentChunk
 from app.models.documents import Document
+from app.services.utils.chunking import chunk_text
+from app.services.utils.preprocessing import preprocess_text
 
 from ..interfaces.document_service import IDocumentService
 # Import your utils
 from .utils.chunking import chunk_documents
-from .utils.preprocessing import preprocess_text
 
 
 class DocumentService(IDocumentService):
@@ -59,37 +60,7 @@ class DocumentService(IDocumentService):
             
         except Exception as e:
             raise ValueError(f"Failed to parse PDF: {str(e)}")
-    
-    async def preprocess_content(self, content: str) -> str:
-        """Preprocess text content"""
-        return preprocess_text(content, clean_whitespace=True)
-    
-    async def chunk_content(
-        self, 
-        content: str, 
-        metadata: Dict[str, Any] = None,
-        chunk_size: int = 1000,
-    ) -> List[LangchainDocument]:
-        """Split content into chunks"""
-        
-        doc = LangchainDocument(
-            page_content=content,
-            metadata=metadata or {}
-        )
-        
-        chunks = chunk_documents([doc], chunk_size)
-        return chunks
-    
-    async def generate_embeddings(self, chunks: List[LangchainDocument]) -> List[List[float]]:
-        """Generate embeddings for chunks"""
-        
-        texts = [chunk.page_content for chunk in chunks]
-        print(texts)
-        
-        embeddings = await self.embedding_provider.get_embeddings_batch(texts)
-        
-        return embeddings
-    
+
     async def insert_document_with_chunks(
         self,
         title: str, 
@@ -152,30 +123,25 @@ class DocumentService(IDocumentService):
         
         try:
             # Step 1: Parse PDF from URL
-            print("step 1")
             content = await self.parse_pdf(document_url)
             document_filename = document_url.split("/")[-1]
             
             # Step 2: Preprocess content
-            print("step 2")
-            preprocessed_content = await self.preprocess_content(content)
+            preprocessed_content = preprocess_text(content)
             
             # Step 3: Chunk content first
-            print("step 3")
             metadata = {"filename": document_filename, "content_type": "application/pdf"}
-            chunks = await self.chunk_content(
+            chunks = chunk_text(
                 preprocessed_content, 
                 metadata, 
                 chunk_size, 
             )
             
             # Step 4: Generate embeddings for each chunk
-            print("step 4")
-            chunk_texts = [chunk.page_content for chunk in chunks]
-            chunk_embeddings = await self.generate_embeddings(chunks)
-            
+            texts = [chunk.page_content for chunk in chunks]
+            chunk_embeddings = await self.embedding_provider.get_embeddings_batch(texts)
+        
             # Step 5: Process existing document and add chunks
-            print("step 5")
             document_title = document_filename or "Untitled Document"
             result = await self.insert_document_with_chunks(
                 title=document_title,
@@ -197,7 +163,6 @@ class DocumentService(IDocumentService):
         try:
             async with engine.begin() as conn:
                 # Drop and recreate document_chunks table to fix the Vector dimension
-                await conn.execute(text("DROP TABLE IF EXISTS document_chunks CASCADE"))
                 await conn.run_sync(Base.metadata.create_all)
         except Exception as e:
             raise RuntimeError(f"Failed to create tables: {str(e)}")

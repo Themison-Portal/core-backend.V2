@@ -6,7 +6,6 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import *
-from app.core.embeddings import SentenceTransformerProvider
 from app.dependencies.auth import auth
 
 load_dotenv()
@@ -16,8 +15,6 @@ app_state = {}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load heavy models at startup"""
-    app_state["embedding_provider"] = SentenceTransformerProvider()
     yield
     # Clean up
     app_state.clear()

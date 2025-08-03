@@ -5,45 +5,16 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from app.core.embeddings import EmbeddingProvider
+from app.services.utils.preprocessing import preprocess_text
 from app.supabase_client.supabase_client import supabase_client
 
 supabase = supabase_client()
 
 def preprocess_query(query: str) -> str:
-    """Clean and normalize the query text."""
-    return query.strip()
-
-def preprocess_query_for_tsquery(query: str) -> str:
-    """
-    Preprocess a natural language query for PostgreSQL's ts_query.
-    Converts spaces to & operators and handles special characters.
-    """
-    # Remove special characters that might cause syntax errors
-    clean_query = re.sub(r'[!@#$%^&*()+=\[\]{};:"\\|,.<>/?]', ' ', query)
-    
-    # Split into words and filter out empty strings
-    words = [word.strip() for word in clean_query.split() if word.strip()]
-    
-    # For very short queries or empty queries after cleaning
-    if not words:
-        return ""  # Return empty string
-        
-    # Join words with & operator for AND logic
-    formatted_query = ' & '.join(words)
-    
-    return formatted_query
-
-async def create_embeddings(query: str, embedding_provider: EmbeddingProvider):
-    """Create embeddings for the query asynchronously."""
-    preprocessed_query = preprocess_query(query)
-    # Use the embedding provider to generate embeddings
-    embeddings = embedding_provider.get_embedding([preprocessed_query])
-    
-    # Return the first (and only) embedding
-    return embeddings[0] if embeddings else []
+    """Clean and normalize the query text using the same preprocessing as documents."""
+    return preprocess_text(query, clean_whitespace=True)
 
 def create_retriever(
-    embedding_provider: EmbeddingProvider,
     match_count: int = 10,
 ):  
     async def retrieve(
@@ -51,7 +22,9 @@ def create_retriever(
         override_match_count: Optional[int] = None
     ) -> List[Dict[Any, Any]]:
         # Generate embedding for the query
-        query_embedding = await create_embeddings(query, embedding_provider)
+        embeddings = await embedding_provider.get_embeddings_batch(texts)
+
+        query_embedding = embeddings[0]
         
         # Use override parameters if provided, otherwise use defaults
         count = override_match_count if override_match_count is not None else match_count        
