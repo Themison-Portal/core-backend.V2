@@ -7,6 +7,7 @@ numpy
 huggingface-hub
 sentence-transformers
 transformers
+openai
 vecs
 langchain
 langchain_community 

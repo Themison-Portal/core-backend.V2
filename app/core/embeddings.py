@@ -1,9 +1,13 @@
+import asyncio
 from abc import ABC, abstractmethod
 from typing import List
-from sentence_transformers import SentenceTransformer
-from app.config import get_settings
-import asyncio
+
 import numpy as np
+from sentence_transformers import SentenceTransformer
+
+from app.config import get_settings
+from app.core.openAI import client
+
 
 class EmbeddingProvider(ABC):
     @abstractmethod
@@ -16,37 +20,38 @@ class EmbeddingProvider(ABC):
 
 class SentenceTransformerProvider(EmbeddingProvider):
     def __init__(self):
-        settings = get_settings()
-        self.model = SentenceTransformer(settings.embedding_model)
+        self.client = client
     
     def get_embedding(self, text: str) -> List[float]:
-        embedding = self.model.encode(text)
-        return embedding.tolist()
+        response = self.client.embeddings.create(
+            input=text,
+            model="text-embedding-3-small"
+        )
+        return [item.embedding for item in response.data]
     
+
     async def get_embeddings_batch(self, texts: List[str], batch_size: int = 32) -> List[List[float]]:
         """Generate embeddings for multiple texts with batching"""
         if not texts:
             return []
         
-        async def process_batch(batch: List[str]) -> np.ndarray:
+        async def process_batch(batch: List[str]):
             return await asyncio.to_thread(
-                lambda: self.model.encode(
-                    batch,
-                    show_progress_bar=False,
-                    convert_to_numpy=True
-                )
+                lambda: self.get_embedding(batch)
             )
         
         if len(texts) <= batch_size:
-            embeddings = await process_batch(texts)
-            return [emb.tolist() for emb in embeddings]
+            return await process_batch(texts)
         
         # Process in batches
         batches = [texts[i:i + batch_size] for i in range(0, len(texts), batch_size)]
         batch_embeddings = await asyncio.gather(*[process_batch(batch) for batch in batches])
         
-        # Combine all batches and convert to lists
-        all_embeddings = np.vstack(batch_embeddings)
-        return [emb.tolist() for emb in all_embeddings]
+        # Combine all batches
+        all_embeddings = []
+        for batch_embeddings_list in batch_embeddings:
+            all_embeddings.extend(batch_embeddings_list)
+        
+        return all_embeddings
 
 # different embedding models comparison in the future hence the factory design 

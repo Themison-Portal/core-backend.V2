@@ -1,9 +1,10 @@
-from typing import List, Dict, Any
-import os
-from openai import AsyncOpenAI
 import asyncio
-from dotenv import load_dotenv
 import logging
+import os
+from typing import Any, Dict, List
+
+from dotenv import load_dotenv
+from openai import AsyncOpenAI
 
 load_dotenv()
 
@@ -33,7 +34,7 @@ def generate_response(query, retrieved_documents: List[Dict[Any, Any]]):
 
 async def call_llm_stream(prompt):
     # Set up your API client
-    client = AsyncOpenAI(api_key=os.getenv('DEEPSEEK_API_KEY'), base_url="https://api.deepseek.com")
+    client = AsyncOpenAI(api_key=os.getenv('OPENAI_API_KEY'), base_url="https://api.openai.com")
 
     try:     
         # Start the stream in a separate thread

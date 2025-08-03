@@ -16,11 +16,11 @@ class DocumentChunk(Base):
     __tablename__ = 'document_chunks'
     
     id: Mapped[UUID] = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    document_id: Mapped[UUID] = Column(UUID(as_uuid=True), ForeignKey('documents.id'), nullable=False)
+    document_id: Mapped[UUID] = Column(UUID(as_uuid=True), ForeignKey('trial_documents.id'), nullable=False)
     content: Mapped[str] = Column(Text, nullable=False)
     chunk_index: Mapped[int] = Column(Integer, nullable=False)
     chunk_metadata: Mapped[Dict] = Column("metadata", JSON)
-    embedding: Mapped[List[float]] = Column(Vector(1024))
+    embedding: Mapped[List[float]] = Column(Vector(1536))
     created_at: Mapped[datetime] = Column(DateTime, default=lambda: datetime.now(UTC))
     
     # Relationships

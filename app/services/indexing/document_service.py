@@ -8,7 +8,7 @@ import pypdf as PyPDF2
 import requests
 from fastapi import UploadFile
 from langchain.schema import Document as LangchainDocument
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -84,6 +84,7 @@ class DocumentService(IDocumentService):
         """Generate embeddings for chunks"""
         
         texts = [chunk.page_content for chunk in chunks]
+        print(texts)
         
         embeddings = await self.embedding_provider.get_embeddings_batch(texts)
         
@@ -109,19 +110,9 @@ class DocumentService(IDocumentService):
             if not document:
                 raise ValueError(f"Document {document_id} not found. Frontend should create it first.")
             
-            # Optionally update document with processed content
-            if content:
-                document.content = content
-            if metadata:
-                # Merge with existing metadata
-                existing_metadata = document.doc_metadata or {}
-                document.doc_metadata = {**existing_metadata, **metadata}
-            
-            # No need to add document - it already exists and SQLAlchemy is tracking it
-            await self.db.flush()  # Save any document updates
-            
-            print(len(chunks) == len(embeddings))
-            
+            # Document already exists, no need to update non-existent columns
+            # Just proceed to add chunks
+                        
             # Add chunks that reference the existing document
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
                 chunk_record = DocumentChunk(
@@ -129,9 +120,9 @@ class DocumentService(IDocumentService):
                     document_id=document.id,  # Reference existing document
                     content=chunk.page_content,
                     chunk_index=i,
-                    chunk_metadata={**chunk.chunk_metadata, "chunk_index": i},
+                    chunk_metadata={**chunk.metadata, "chunk_index": i},
                     embedding=embedding,
-                    created_at=datetime.now(UTC)
+                    created_at=datetime.now()
                 )
                 self.db.add(chunk_record)  # Add NEW chunk
             
@@ -205,6 +196,8 @@ class DocumentService(IDocumentService):
         """Create tables if they don't exist"""
         try:
             async with engine.begin() as conn:
+                # Drop and recreate document_chunks table to fix the Vector dimension
+                await conn.execute(text("DROP TABLE IF EXISTS document_chunks CASCADE"))
                 await conn.run_sync(Base.metadata.create_all)
         except Exception as e:
             raise RuntimeError(f"Failed to create tables: {str(e)}")
