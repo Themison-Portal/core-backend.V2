@@ -1,17 +1,31 @@
-from .base import IBaseService
-from typing import List
-from app.contracts.query import QueryCreate, QueryUpdate, QueryResponse
-from app.contracts.document import DocumentResponse
+from typing import Any, AsyncGenerator, Dict, List
 
-class IQueryService(IBaseService[QueryCreate, QueryUpdate, QueryResponse]):
-    async def search_documents(self, query: str) -> List[DocumentResponse]:
-        """Search documents using the query"""
+from langchain_core.documents import Document
+
+from app.contracts.document import DocumentResponse
+from app.contracts.query import QueryCreate, QueryResponse, QueryUpdate
+
+from .base import IBaseService
+
+
+class IRetrievalGenerationService(IBaseService[QueryCreate, QueryUpdate, QueryResponse]):
+    async def process_query(self, query: str) -> AsyncGenerator[str, None]:
+        """Process a query through the RAG pipeline with streaming response"""
         pass
     
-    async def create_embedding(self, query: str) -> List[float]:
-        """Generate embedding for query"""
+    async def retrieve_documents(self, query: str, limit: int = 5) -> List[Dict[Any, Any]]:
+        """Retrieve documents without generation"""
         pass
-
-    async def search_by_vector(self, query_vector: List[float], limit: int = 5) -> List[DocumentResponse]:
-        """Search documents by vector similarity"""
+    
+    async def chunk_content(
+        self, 
+        content: str, 
+        metadata: Dict[str, Any] = None,
+        chunk_size: int = 1000,
+    ) -> List[Document]:
+        """Split content into chunks"""
+        pass
+    
+    async def generate_embeddings(self, chunks: List[Document]) -> List[List[float]]:
+        """Generate embeddings for chunks"""
         pass

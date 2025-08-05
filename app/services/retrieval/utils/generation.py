@@ -4,7 +4,8 @@ import os
 from typing import Any, Dict, List
 
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
+
+from app.core.openAI import async_client
 
 load_dotenv()
 
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 def generate_response(query, retrieved_documents: List[Dict[Any, Any]]):
     # Format retrieved documents into context
     context = ""
+    print(f"retrieved_documents: {retrieved_documents}")
     for i, doc in enumerate(retrieved_documents):
         source = doc.get('metadata', {}).get('source', 'Unknown')
         page = doc.get('metadata', {}).get('page', 'Unknown')
@@ -34,15 +36,21 @@ def generate_response(query, retrieved_documents: List[Dict[Any, Any]]):
 
 async def call_llm_stream(prompt):
     # Set up your API client
-    client = AsyncOpenAI(api_key=os.getenv('OPENAI_API_KEY'), base_url="https://api.openai.com")
+    client = async_client
 
     try:     
-        # Start the stream in a separate thread
+        # Fixed API call format
         stream = await client.chat.completions.create(
-            model="deepseek-chat",
+            model="gpt-4.1-nano",  # Use a valid model name
             messages=[
-                {"role": "system", "content": "You are a helpful assistant, answer the user's query based on the provided information."},
-                {"role": "user", "content": prompt},
+                {
+                    "role": "developer", 
+                    "content": "You are a helpful assistant, answer the user's query based on the provided information."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
             ],
             stream=True,
             temperature=0.5,
@@ -50,10 +58,10 @@ async def call_llm_stream(prompt):
             
         async def generator():
             async for chunk in stream:
-                yield chunk.choices[0].delta.content or ""
+                if chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
 
-        response_messages = generator()
-        return response_messages
+        return generator()
     except Exception as e:
         logger.error(f"Error calling LLM API: {e}")
         async def error_generator():
