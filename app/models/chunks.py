@@ -19,7 +19,7 @@ class DocumentChunk(Base):
     document_id: Mapped[UUID] = Column(UUID(as_uuid=True), ForeignKey('trial_documents.id'), nullable=False)
     content: Mapped[str] = Column(Text, nullable=False)
     chunk_index: Mapped[int] = Column(Integer, nullable=False)
-    chunk_metadata: Mapped[Dict] = Column("metadata", JSON)
+    chunk_metadata: Mapped[Dict] = Column("chunk_metadata", JSON)
     embedding: Mapped[List[float]] = Column(Vector(1536))
     created_at: Mapped[datetime] = Column(DateTime, default=lambda: datetime.now(UTC))
     
