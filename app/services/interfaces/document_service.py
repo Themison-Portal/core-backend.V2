@@ -14,24 +14,7 @@ class IDocumentService(IBaseService[DocumentCreate, DocumentUpdate, DocumentResp
     async def parse_pdf(self, document_url: str) -> str:
         """Extract text content from PDF file"""
         pass
-    
-    async def preprocess_content(self, content: str) -> str:
-        """Preprocess text content"""
-        pass
-    
-    async def chunk_content(
-        self, 
-        content: str, 
-        metadata: Dict[str, Any] = None,
-        chunk_size: int = 1000,
-    ) -> List[Document]:
-        """Split content into chunks"""
-        pass
-    
-    async def generate_embeddings(self, chunks: List[Document]) -> List[List[float]]:
-        """Generate embeddings for chunks"""
-        pass
-    
+
     async def insert_document_with_chunks(
         self,
         title: str, 
