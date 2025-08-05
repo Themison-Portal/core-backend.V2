@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from langchain.schema import Document as LangchainDocument
+from langchain_core.documents import Document
 
 from app.contracts.document import (DocumentCreate, DocumentResponse,
                                     DocumentUpdate)
@@ -24,11 +24,11 @@ class IDocumentService(IBaseService[DocumentCreate, DocumentUpdate, DocumentResp
         content: str, 
         metadata: Dict[str, Any] = None,
         chunk_size: int = 1000,
-    ) -> List[LangchainDocument]:
+    ) -> List[Document]:
         """Split content into chunks"""
         pass
     
-    async def generate_embeddings(self, chunks: List[LangchainDocument]) -> List[List[float]]:
+    async def generate_embeddings(self, chunks: List[Document]) -> List[List[float]]:
         """Generate embeddings for chunks"""
         pass
     
@@ -37,7 +37,7 @@ class IDocumentService(IBaseService[DocumentCreate, DocumentUpdate, DocumentResp
         title: str, 
         document_id: UUID,
         content: str,
-        chunks: List[LangchainDocument],
+        chunks: List[Document],
         embeddings: List[List[float]],
         metadata: Dict[str, Any] = None,
         user_id: UUID = None

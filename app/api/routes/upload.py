@@ -8,7 +8,7 @@ from uuid import UUID
 import requests
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
-from langchain.docstore.document import Document as LangchainDocument
+from langchain_core.documents import Document
 from pydantic import BaseModel
 from pypdf import PdfReader
 

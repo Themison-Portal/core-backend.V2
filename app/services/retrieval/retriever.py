@@ -15,6 +15,7 @@ def preprocess_query(query: str) -> str:
     return preprocess_text(query, clean_whitespace=True)
 
 def create_retriever(
+    embedding_provider: EmbeddingProvider,
     match_count: int = 10,
 ):  
     async def retrieve(
@@ -22,8 +23,7 @@ def create_retriever(
         override_match_count: Optional[int] = None
     ) -> List[Dict[Any, Any]]:
         # Generate embedding for the query
-        embeddings = await embedding_provider.get_embeddings_batch(texts)
-
+        embeddings = await embedding_provider.get_embeddings_batch([query])
         query_embedding = embeddings[0]
         
         # Use override parameters if provided, otherwise use defaults

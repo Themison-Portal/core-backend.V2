@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 import pypdf as PyPDF2
 import requests
 from fastapi import UploadFile
-from langchain.schema import Document as LangchainDocument
+from langchain_core.documents import Document
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +18,7 @@ from app.core.storage import StorageProvider
 from app.db.session import engine
 from app.models.base import Base
 from app.models.chunks import DocumentChunk
-from app.models.documents import Document
+from app.models.documents import Document as DocumentTable
 from app.services.utils.chunking import chunk_text
 from app.services.utils.preprocessing import preprocess_text
 
@@ -66,7 +66,7 @@ class DocumentService(IDocumentService):
         title: str, 
         document_id: UUID,  # Existing document ID from frontend
         content: str,
-        chunks: List[LangchainDocument],
+        chunks: List[Document],
         embeddings: List[List[float]],
         metadata: Dict[str, Any] = None,
         user_id: UUID = None
@@ -77,7 +77,7 @@ class DocumentService(IDocumentService):
         
         try:
             # Find existing document that frontend already created
-            document = await self.db.get(Document, document_id)
+            document = await self.db.get(DocumentTable, document_id)
             if not document:
                 raise ValueError(f"Document {document_id} not found. Frontend should create it first.")
             

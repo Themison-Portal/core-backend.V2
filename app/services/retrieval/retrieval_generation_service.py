@@ -1,10 +1,11 @@
 from typing import Any, AsyncGenerator, Dict, List
 
 from app.core.embeddings import EmbeddingProvider
-from app.services.utils.chunking import chunk_text
+from langchain_core.documents import Document
 
 from .retriever import create_retriever, preprocess_query
 from .utils.generation import call_llm_stream, generate_response
+from app.services.indexing.utils.chunking import chunk_documents
 
 
 class RetrievalGenerationService:
@@ -12,9 +13,25 @@ class RetrievalGenerationService:
         self.embedding_provider = embedding_provider
         self.retriever = create_retriever(embedding_provider)
     
+    # TODO: abstract this out to a separate service
+    async def chunk_content(
+        self, 
+        content: str, 
+        metadata: Dict[str, Any] = None,
+        chunk_size: int = 1000,
+    ) -> List[Document]:
+        """Split content into chunks"""
+        
+        doc = Document(
+            page_content=content,
+            metadata=metadata or {}
+        )
+        
+        chunks = chunk_documents([doc], chunk_size)
+        return chunks
         
     # TODO: abstract this out to a separate service
-    async def generate_embeddings(self, chunks: List[LangchainDocument]) -> List[List[float]]:
+    async def generate_embeddings(self, chunks: List[Document]) -> List[List[float]]:
         """Generate embeddings for chunks"""
         
         texts = [chunk.page_content for chunk in chunks]
@@ -29,10 +46,6 @@ class RetrievalGenerationService:
         # Preprocess the query
         print(f"step 1")
         processed_query = preprocess_query(query)
-        
-        # Chunk the query
-        print(f"step 1.5")
-        chunks = chunk_text(processed_query)
         
         # Retrieve relevant documents
         print(f"step 2")
