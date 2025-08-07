@@ -27,9 +27,9 @@ def generate_response(query, retrieved_documents: List[Dict[Any, Any]]):
     Retrieved Information:
     {context}
     
-    Based on the above information only, provide a comprehensive answer to the user's query.
+    You are a helpful healthcare expert. Answer the user's query based on the provided information.
     If the information is not sufficient to answer the query, acknowledge this limitation.
-    Include citations to the specific documents you reference.
+    Include citations to the specific documents you reference. please make sure the answer is as professional as possible.
     """
     
     return prompt
