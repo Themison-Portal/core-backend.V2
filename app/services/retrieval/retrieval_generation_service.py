@@ -23,26 +23,14 @@ class RetrievalGenerationService(IRetrievalGenerationService):
             
     async def process_query(self, query: str) -> AsyncGenerator[str, None]:
         """Process a query through the RAG pipeline"""
-        # Preprocess the query
-        print(f"step 1")
         processed_query = preprocess_query(query)
         
-        print(f"processed_query: {processed_query}")
         
-        # Retrieve relevant documents with chunking and embedding generation
-        print(f"step 2")
         retrieved_docs = await self.retriever(processed_query)
         
-        print(f"retrieved_docs: {retrieved_docs}")
-        
-        # Generate prompt
-        print(f"step 3")
         prompt = generate_response(processed_query, retrieved_docs)
         
-        print(f"prompt: {prompt}")
         
-        # Get streaming response
-        print(f"step 4")
         return await call_llm_stream(prompt)
 
     async def process_query_on_documents(self, query: str, document_ids: List[str]) -> AsyncGenerator[str, None]:
