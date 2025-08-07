@@ -21,7 +21,7 @@ async def get_rag_service() -> RetrievalGenerationService:
     embedding_provider = get_embedding_provider()
     return RetrievalGenerationService(embedding_provider)
 
-@router.post("/")
+@router.post("")
 async def process_query(
     request: QueryRequest,
     rag_service: RetrievalGenerationService = Depends(get_rag_service),
