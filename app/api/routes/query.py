@@ -15,7 +15,6 @@ class QueryRequest(BaseModel):
     message: str
     retrieve_only: bool = False
     limit: Optional[int] = 5
-    document_ids: Optional[List[str]] = None
 
 async def get_rag_service() -> RetrievalGenerationService:
     embedding_provider = get_embedding_provider()
@@ -29,16 +28,12 @@ async def process_query(
 ):
     try:
         if request.retrieve_only:
-            if request.document_ids:
-                docs = await rag_service.retrieve_documents_by_ids(request.document_ids, request.limit)
-            else:
-                docs = await rag_service.retrieve_documents(request.message, request.limit)
+            # Just retrieve documents
+            docs = await rag_service.retrieve_documents(request.message, request.limit)
             return JSONResponse(content={"documents": docs})
         else:
-            if request.document_ids:
-                generator = await rag_service.process_query_on_documents(request.message, request.document_ids)
-            else:
-                generator = await rag_service.process_query(request.message)
+            # Full RAG pipeline with streaming response
+            generator = await rag_service.process_query(request.message)
             return StreamingResponse(
                 generator,
                 media_type="text/event-stream"
