@@ -1,7 +1,9 @@
-from app.supabase_client.supabase_client import supabase_client
+from typing import Any, Dict, Optional
+
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import Optional, Dict, Any
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from app.core.supabase_client import supabase_client
 
 supabase = supabase_client()
 security = HTTPBearer()

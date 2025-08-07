@@ -6,9 +6,9 @@ import numpy as np
 from langchain_core.documents import Document
 
 from app.core.embeddings import EmbeddingProvider
+from app.core.supabase_client import supabase_client
 from app.services.indexing.utils.chunking import chunk_documents
 from app.services.utils.preprocessing import preprocess_text
-from app.supabase_client.supabase_client import supabase_client
 
 supabase = supabase_client()
 
