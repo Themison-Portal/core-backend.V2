@@ -9,8 +9,9 @@ sentence-transformers
 transformers
 openai
 vecs
-langchain
+langchain[openai]
 langchain_community 
+langchain_openai
 langchain_text_splitters
 pypdf
 openai
