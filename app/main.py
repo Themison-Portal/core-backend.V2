@@ -1,3 +1,7 @@
+"""
+Main application file
+"""
+
 import os
 from contextlib import asynccontextmanager
 
@@ -5,7 +9,9 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import *
+from app.api.routes.auth import router as auth_router
+from app.api.routes.query import router as query_router
+from app.api.routes.upload import router as upload_router
 from app.core.embeddings import OpenAIEmbeddingProvider
 from app.dependencies.auth import auth
 

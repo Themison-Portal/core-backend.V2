@@ -1,16 +1,12 @@
-import asyncio
-import concurrent.futures
-import io
-from datetime import datetime
-from typing import Annotated, Any, Dict, List, Optional
+"""
+Upload routes
+"""
+
+from typing import Optional
 from uuid import UUID
 
-import requests
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse
-from langchain_core.documents import Document
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from pypdf import PdfReader
 
 from app.contracts.document import DocumentResponse
 from app.dependencies.auth import get_current_user
@@ -20,6 +16,9 @@ from app.services.indexing.document_service import DocumentService
 router = APIRouter()
 
 class UploadDocumentRequest(BaseModel):
+    """
+    Upload document request
+    """
     document_url: str
     document_id: UUID
     chunk_size: Optional[int] = 1000
@@ -30,7 +29,9 @@ async def upload_pdf_document(
     user = Depends(get_current_user),
     document_service: DocumentService = Depends(get_document_service)
 ):
-    
+    """
+    Upload a PDF document
+    """
     # Validate file type
     if not request.document_url.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")

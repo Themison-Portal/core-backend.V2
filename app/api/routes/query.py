@@ -1,3 +1,7 @@
+"""
+Query routes
+"""
+
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,18 +10,25 @@ from pydantic import BaseModel
 
 from app.api.routes.auth import get_current_user
 from app.dependencies.providers import get_embedding_provider
-from app.services.retrieval.retrieval_generation_service import \
-    RetrievalGenerationService
+from app.services.retrieval.retrieval_generation_service import (
+    RetrievalGenerationService,
+)
 
 router = APIRouter()
 
 class QueryRequest(BaseModel):
+    """
+    Query request
+    """
     message: str
     retrieve_only: bool = False
     limit: Optional[int] = 5
     document_ids: Optional[List[str]] = None
 
 async def get_rag_service() -> RetrievalGenerationService:
+    """
+    Get the RAG service
+    """
     embedding_provider = get_embedding_provider()
     return RetrievalGenerationService(embedding_provider)
 
@@ -27,6 +38,9 @@ async def process_query(
     rag_service: RetrievalGenerationService = Depends(get_rag_service),
     current_user: dict = Depends(get_current_user)
 ):
+    """
+    Process a query
+    """
     try:
         if request.retrieve_only:
             # Just retrieve documents
