@@ -1,6 +1,8 @@
-import asyncio
+"""
+Generation utilities for retrieval
+"""
+
 import logging
-import os
 from typing import Any, Dict, List
 
 from dotenv import load_dotenv
@@ -11,7 +13,11 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-def generate_response(query, retrieved_documents: List[Dict[Any, Any]]):
+def generate_response(query: str, retrieved_documents: List[Dict[Any, Any]]) -> str:
+    """
+    Generate a response to a query based on retrieved documents
+    """
+
     # Format retrieved documents into context
     context = ""
     print(f"retrieved_documents: {retrieved_documents}")
@@ -35,6 +41,10 @@ def generate_response(query, retrieved_documents: List[Dict[Any, Any]]):
     return prompt
 
 async def call_llm_stream(prompt):
+    """
+    Call the LLM API and stream the response
+    """
+
     # Set up your API client
     client = async_client
 
@@ -62,8 +72,8 @@ async def call_llm_stream(prompt):
                     yield chunk.choices[0].delta.content
 
         return generator()
-    except Exception as e:
-        logger.error(f"Error calling LLM API: {e}")
+    except (ValueError, RuntimeError, ConnectionError) as e:
+        logger.error("Error calling LLM API: %s", e)
         async def error_generator():
             yield "Sorry, I encountered an error generating a response."
         return error_generator()

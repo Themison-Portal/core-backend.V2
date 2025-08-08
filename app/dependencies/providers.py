@@ -1,8 +1,14 @@
+"""
+This module contains the provider dependencies.
+"""
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.embeddings import EmbeddingProvider, SentenceTransformerProvider
-from app.core.storage import StorageProvider, PostgresVectorStore
+from app.core.storage import PostgresVectorStore, StorageProvider
+
 from .db import get_db
+
 
 def get_embedding_provider() -> EmbeddingProvider:
     """Get embedding provider instance from app state (loaded at startup)"""

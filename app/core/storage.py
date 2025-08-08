@@ -1,20 +1,35 @@
+"""
+This module contains the storage provider.
+"""
+
 from abc import ABC, abstractmethod
 from typing import List
-from app.models.documents import Document
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import numpy as np
+
+from app.models.documents import Document
+
 
 class StorageProvider(ABC):
+    """
+    An abstract class that provides storage for the application.
+    """
     @abstractmethod
     async def similarity_search(
         self,
         query_vector: List[float],
         limit: int = 5
     ) -> List[Document]:
+        """
+        Search for documents that are similar to the query vector.
+        """
         pass
 
 class PostgresVectorStore(StorageProvider):
+    """
+    A provider that uses PostgreSQL's vector similarity search to get documents.
+    """
     def __init__(self, db: AsyncSession):
         self.db = db
     

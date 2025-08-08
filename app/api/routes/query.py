@@ -15,6 +15,7 @@ class QueryRequest(BaseModel):
     message: str
     retrieve_only: bool = False
     limit: Optional[int] = 5
+    document_ids: Optional[List[str]] = None
 
 async def get_rag_service() -> RetrievalGenerationService:
     embedding_provider = get_embedding_provider()

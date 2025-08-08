@@ -1,3 +1,7 @@
+"""
+Chunking utilities for indexing documents
+"""
+
 from typing import List
 
 from langchain_core.documents import Document

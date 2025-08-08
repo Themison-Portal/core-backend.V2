@@ -1,7 +1,7 @@
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+"""
+This module contains the base model for the application.
+"""
 
-from app.config import get_settings
+from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()

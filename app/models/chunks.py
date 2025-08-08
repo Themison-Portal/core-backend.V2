@@ -1,3 +1,6 @@
+"""
+This module contains the document chunk model.
+"""
 import uuid
 from datetime import UTC, datetime
 from typing import Dict, List
@@ -13,6 +16,9 @@ from .documents import Document
 
 # New table for individual chunks
 class DocumentChunk(Base):
+    """
+    A model that represents a document chunk.
+    """
     __tablename__ = 'document_chunks'
     
     id: Mapped[UUID] = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

@@ -1,3 +1,7 @@
+"""
+This module contains the chat document link model.
+"""
+
 from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer
@@ -7,6 +11,9 @@ from .base import Base
 
 
 class ChatDocumentLink(Base):
+    """
+    A model that links a chat session to a document.
+    """
     __tablename__ = 'chat_document_links'
     
     chat_session_id = Column(UUID(as_uuid=True), ForeignKey('chat_sessions.id'), primary_key=True)

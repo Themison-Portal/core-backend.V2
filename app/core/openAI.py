@@ -1,5 +1,5 @@
-from openai import AsyncOpenAI, OpenAI
+from langchain_openai import ChatOpenAI, AsyncOpenAI
 
-client = OpenAI()
+client = ChatOpenAI(model="gpt-4o-mini")
 
-async_client = AsyncOpenAI()
+async_client = AsyncOpenAI(model="gpt-4o-mini")

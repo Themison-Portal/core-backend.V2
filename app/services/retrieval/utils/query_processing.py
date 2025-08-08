@@ -1,8 +1,8 @@
+"""
+Query processing utilities for retrieval
+"""
+
 from typing import Any, Dict, List
-
-from langchain_core.documents import Document
-
-from app.services.indexing.utils.chunking import chunk_documents
 
 
 def summarize_long_query(query: str, max_length: int = 200) -> str:

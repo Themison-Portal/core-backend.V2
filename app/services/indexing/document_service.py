@@ -1,4 +1,6 @@
-# app/services/indexing/document_service.py
+"""
+This module contains the document service.
+"""
 import io
 from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional
@@ -19,15 +21,18 @@ from app.db.session import engine
 from app.models.base import Base
 from app.models.chunks import DocumentChunk
 from app.models.documents import Document as DocumentTable
+from app.services.interfaces.document_service import IDocumentService
 from app.services.utils.chunking import chunk_text
 from app.services.utils.preprocessing import preprocess_text
 
-from ..interfaces.document_service import IDocumentService
 # Import your utils
-from .utils.chunking import chunk_documents
+# from .utils.chunking import chunk_documents
 
 
 class DocumentService(IDocumentService):
+    """
+    A service that handles document indexing and chunking.
+    """
     def __init__(
         self, 
         db: AsyncSession,
@@ -39,7 +44,9 @@ class DocumentService(IDocumentService):
         self.storage_provider = storage_provider
     
     async def parse_pdf(self, document_url: str) -> str:
-        """Extract text content from PDF file"""
+        """
+        Extract text content from PDF file.
+        """
         try:
             # Read PDF content
             response = requests.get(document_url)
@@ -71,7 +78,9 @@ class DocumentService(IDocumentService):
         metadata: Dict[str, Any] = None,
         user_id: UUID = None
     ) -> DocumentResponse:
-        """Process existing document and add chunks with embeddings"""
+        """
+        Process existing document and add chunks with embeddings.
+        """
         
         await self.ensure_tables_exist()
         
@@ -119,7 +128,9 @@ class DocumentService(IDocumentService):
         user_id: UUID = None,
         chunk_size: int = 1000,
     ) -> DocumentResponse:
-        """Complete PDF processing pipeline for existing document"""
+        """
+        Complete PDF processing pipeline for existing document.
+        """
         
         try:
             # Step 1: Parse PDF from URL
@@ -159,7 +170,9 @@ class DocumentService(IDocumentService):
             raise RuntimeError(f"PDF processing failed: {str(e)}")
     
     async def ensure_tables_exist(self):
-        """Create tables if they don't exist"""
+        """
+        Create tables if they don't exist.
+        """
         try:
             async with engine.begin() as conn:
                 # Drop and recreate document_chunks table to fix the Vector dimension

@@ -1,13 +1,17 @@
+"""
+This module contains the database dependencies.
+"""
 from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import async_session, engine
-from app.models.base import Base
+from app.db.session import async_session
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency for getting async database session"""
+    """
+    Dependency for getting async database session.
+    """
     # async with engine.begin() as conn:
         # await conn.run_sync(Base.metadata.create_all, checkfirst=True)
     db = async_session()
@@ -15,3 +19,4 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         yield db
     finally:
         await db.close() 
+        

@@ -1,14 +1,20 @@
+"""
+Query service interface
+"""
+
 from typing import Any, AsyncGenerator, Dict, List
 
 from langchain_core.documents import Document
 
-from app.contracts.document import DocumentResponse
 from app.contracts.query import QueryCreate, QueryResponse, QueryUpdate
-
-from .base import IBaseService
+from app.services.interfaces.base import IBaseService
 
 
 class IRetrievalGenerationService(IBaseService[QueryCreate, QueryUpdate, QueryResponse]):
+    """
+    Query service interface
+    """
+
     async def process_query(self, query: str) -> AsyncGenerator[str, None]:
         """Process a query through the RAG pipeline with streaming response"""
         pass

@@ -1,3 +1,6 @@
+"""
+This module contains the query model.
+"""
 import uuid
 from datetime import UTC, datetime
 from uuid import UUID
@@ -9,6 +12,9 @@ from .base import Base
 
 
 class Query(Base):
+    """
+    A model that represents a query.
+    """
     __tablename__ = 'queries'
     
     id: Mapped[UUID] = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

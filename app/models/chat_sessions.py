@@ -1,3 +1,7 @@
+"""
+This module contains the chat session model.
+"""
+
 import uuid
 from datetime import UTC, datetime
 from typing import List
@@ -12,6 +16,9 @@ from .chat_messages import ChatMessage
 # from .documents import Document  # Removed to fix circular import
 
 class ChatSession(Base):
+    """
+    A model that represents a chat session.
+    """
     __tablename__ = 'chat_sessions'
     
     id: Mapped[UUID] = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

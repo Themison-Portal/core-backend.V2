@@ -1,28 +1,42 @@
+"""
+This module contains the embeddings provider.
+"""
 import asyncio
 from abc import ABC, abstractmethod
 from typing import List
 
-import numpy as np
-from sentence_transformers import SentenceTransformer
-
-from app.config import get_settings
 from app.core.openAI import client
 
 
 class EmbeddingProvider(ABC):
+    """
+    An abstract class that provides embeddings for text.
+    """
     @abstractmethod
     def get_embedding(self, text: str) -> List[float]:
+        """
+        Get an embedding for a text.
+        """
         pass
     
     @abstractmethod
     async def get_embeddings_batch(self, texts: List[str], batch_size: int = 32) -> List[List[float]]:
+        """
+        Get embeddings for multiple texts with batching.
+        """
         pass
 
 class SentenceTransformerProvider(EmbeddingProvider):
+    """
+    A provider that uses the SentenceTransformer library to get embeddings.
+    """
     def __init__(self):
         self.client = client
     
     def get_embedding(self, text: str) -> List[float]:
+        """
+        Get an embedding for a text.
+        """
         response = self.client.embeddings.create(
             input=text,
             model="text-embedding-3-small"
@@ -31,7 +45,9 @@ class SentenceTransformerProvider(EmbeddingProvider):
     
 
     async def get_embeddings_batch(self, texts: List[str], batch_size: int = 32) -> List[List[float]]:
-        """Generate embeddings for multiple texts with batching"""
+        """
+        Get embeddings for multiple texts with batching.
+        """
         if not texts:
             return []
         
@@ -39,7 +55,7 @@ class SentenceTransformerProvider(EmbeddingProvider):
             return await asyncio.to_thread(
                 lambda: self.get_embedding(batch)
             )
-        
+
         if len(texts) <= batch_size:
             return await process_batch(texts)
         

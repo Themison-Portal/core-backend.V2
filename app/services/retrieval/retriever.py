@@ -1,5 +1,8 @@
+"""
+Retriever for retrieval
+"""
+
 import asyncio
-import re
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -79,10 +82,18 @@ def create_retriever(
     match_count: int = 10,
     query_chunk_size: int = 500,
 ):  
+    """
+    Create a retriever
+    """
+
     async def retrieve(
         query: str,
         override_match_count: Optional[int] = None
     ) -> List[Dict[Any, Any]]:
+        """
+        Retrieve documents based on a query
+        """
+
         # Preprocess the query
         processed_query = preprocess_query(query)
         

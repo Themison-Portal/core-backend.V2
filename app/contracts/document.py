@@ -1,3 +1,6 @@
+"""
+This module contains the contracts for the document.
+"""
 from datetime import datetime
 from typing import Dict, List, Optional
 from uuid import UUID
@@ -6,6 +9,9 @@ from .base import BaseContract, TimestampedContract
 
 
 class DocumentBase(BaseContract):
+    """
+    A base contract for all documents.
+    """
     document_name: str
     document_type: str
     document_url: str
@@ -22,9 +28,15 @@ class DocumentBase(BaseContract):
     warning: Optional[bool] = None
 
 class DocumentCreate(DocumentBase):
+    """
+    A contract for creating a document.
+    """
     pass
 
 class DocumentUpdate(BaseContract):
+    """
+    A contract for updating a document.
+    """
     document_name: Optional[str] = None
     document_type: Optional[str] = None
     document_url: Optional[str] = None
@@ -41,9 +53,15 @@ class DocumentUpdate(BaseContract):
     warning: Optional[bool] = None
 
 class DocumentResponse(DocumentBase, TimestampedContract):
+    """
+    A contract for a document.
+    """
     id: UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
     
 class DocumentUpload(BaseContract):
+    """
+    A contract for uploading a document.
+    """
     document_url: str

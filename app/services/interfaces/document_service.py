@@ -1,20 +1,24 @@
+"""
+Document service interface
+"""
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from langchain_core.documents import Document
 
-from app.contracts.document import (DocumentCreate, DocumentResponse,
-                                    DocumentUpdate)
-from app.models.chunks import DocumentChunk
-
-from .base import IBaseService
+from app.contracts.document import DocumentCreate, DocumentResponse, DocumentUpdate
+from app.services.interfaces.base import IBaseService
 
 
 class IDocumentService(IBaseService[DocumentCreate, DocumentUpdate, DocumentResponse]):
+    """
+    Document service interface
+    """
+
     async def parse_pdf(self, document_url: str) -> str:
         """Extract text content from PDF file"""
         pass
-
+    
     async def insert_document_with_chunks(
         self,
         title: str, 

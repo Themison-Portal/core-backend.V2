@@ -1,3 +1,6 @@
+"""
+This module contains the authentication dependencies.
+"""
 from typing import Any, Dict, Optional
 
 from fastapi import Depends, HTTPException, status
@@ -5,9 +8,15 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.supabase_client import supabase_client
 
+"""
+Create a Supabase client.
+"""
 supabase = supabase_client()
 security = HTTPBearer()
 
+"""
+Dependency to get current authenticated user information.
+"""
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> Dict[str, Any]:
@@ -45,6 +54,9 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+"""
+Dependency to get just the current user ID.
+"""
 async def get_current_user_id(
     current_user: Dict[str, Any] = Depends(get_current_user)
 ) -> str:
@@ -55,6 +67,9 @@ async def get_current_user_id(
     return current_user["id"]
 
 # Legacy support - remove once migration is complete
+"""
+Legacy support - remove once migration is complete.
+"""
 class AuthDependency:
     @staticmethod
     async def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(security)):

@@ -1,3 +1,7 @@
+"""
+This module contains the user model.
+"""
+
 import uuid
 from datetime import UTC, datetime
 from enum import Enum as PyEnum
@@ -16,6 +20,9 @@ class UserRole(PyEnum):
     USER = "user"
 
 class User(Base):
+    """
+    A model that represents a user.
+    """
     __tablename__ = 'users'
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

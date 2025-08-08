@@ -1,9 +1,22 @@
+"""
+This module contains the document model.
+"""
+
 import uuid
 from datetime import UTC, datetime
 from typing import List, Optional
 
-from sqlalchemy import (ARRAY, JSON, BigInteger, Boolean, Column, DateTime,
-                        Integer, String, Text)
+from sqlalchemy import (
+    ARRAY,
+    JSON,
+    BigInteger,
+    Boolean,
+    Column,
+    DateTime,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.orm import Mapped, relationship
 
@@ -11,6 +24,9 @@ from .base import Base
 
 
 class Document(Base):
+    """
+    A model that represents a document.
+    """
     __tablename__ = 'trial_documents'
     
     id: Mapped[UUID] = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
