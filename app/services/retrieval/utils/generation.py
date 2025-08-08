@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 
 from dotenv import load_dotenv
 
-from app.core.openAI import async_client
+from app.core.openAI import chat_client
 
 load_dotenv()
 
@@ -42,38 +42,13 @@ def generate_response(query: str, retrieved_documents: List[Dict[Any, Any]]) -> 
 
 async def call_llm_stream(prompt):
     """
-    Call the LLM API and stream the response
+    Call the LLM API and stream the response using LangChain
     """
-
-    # Set up your API client
-    client = async_client
-
-    try:     
-        # Fixed API call format
-        stream = await client.chat.completions.create(
-            model="gpt-4.1-nano",  # Use a valid model name
-            messages=[
-                {
-                    "role": "developer", 
-                    "content": "You are a helpful assistant, answer the user's query based on the provided information."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            stream=True,
-            temperature=0.5,
-        )
-            
-        async def generator():
-            async for chunk in stream:
-                if chunk.choices[0].delta.content:
-                    yield chunk.choices[0].delta.content
-
-        return generator()
-    except (ValueError, RuntimeError, ConnectionError) as e:
+    try:
+        # LangChain streaming approach
+        async for chunk in chat_client.astream(prompt):
+            if chunk.content:
+                yield chunk.content
+    except Exception as e:
         logger.error("Error calling LLM API: %s", e)
-        async def error_generator():
-            yield "Sorry, I encountered an error generating a response."
-        return error_generator()
+        yield "Sorry, I encountered an error generating a response."
