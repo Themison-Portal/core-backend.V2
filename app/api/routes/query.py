@@ -19,6 +19,7 @@ class QueryRequest(BaseModel):
     Query request
     """
     message: str
+    user_id: str
     limit: Optional[int] = 5
     document_ids: Optional[List[str]] = None
     
@@ -36,7 +37,7 @@ async def process_query(
         # Full RAG pipeline with streaming response
         generator = await rag_agent.invoke(
             {"messages": [HumanMessage(content=request.message)]},
-            config={"configurable": {"thread_id": 'session token from frontend'}}
+            config={"configurable": {"thread_id": request.user_id}}
         )
         return StreamingResponse(
             generator,
