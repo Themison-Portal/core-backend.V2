@@ -5,13 +5,12 @@ Query routes
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
+from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
 from app.api.routes.auth import get_current_user
-from app.services.retrieval.retrieval_generation_service import (
-    RetrievalGenerationService,
-)
+from app.services.agenticRag.agent import RagAgent
 
 router = APIRouter()
 
@@ -20,36 +19,28 @@ class QueryRequest(BaseModel):
     Query request
     """
     message: str
-    retrieve_only: bool = False
     limit: Optional[int] = 5
     document_ids: Optional[List[str]] = None
-
-async def get_rag_service() -> RetrievalGenerationService:
-    """
-    Get the RAG service
-    """
-    return RetrievalGenerationService();
-
+    
 @router.post("")
 async def process_query(
     request: QueryRequest,
-    rag_service: RetrievalGenerationService = Depends(get_rag_service),
+    rag_agent: RagAgent = Depends(RagAgent().create_graph()),
     current_user: dict = Depends(get_current_user)
 ):
     """
     Process a query
     """
     try:
-        if request.retrieve_only:
-            # Just retrieve documents
-            docs = await rag_service.retrieve_documents(request.message, request.limit)
-            return JSONResponse(content={"documents": docs})
-        else:
-            # Full RAG pipeline with streaming response
-            generator = await rag_service.process_query(request.message)
-            return StreamingResponse(
-                generator,
-                media_type="text/event-stream"
-            )
+
+        # Full RAG pipeline with streaming response
+        generator = await rag_agent.invoke(
+            {"messages": [HumanMessage(content=request.message)]},
+            config={"configurable": {"thread_id": 'session token from frontend'}}
+        )
+        return StreamingResponse(
+            generator,
+            media_type="text/event-stream"
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

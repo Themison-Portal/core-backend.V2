@@ -1,7 +1,7 @@
 """Tools for agentic RAG system."""
 
-from .documents_analysis import documents_analysis_tool
+from .documents_retrieval_tool import documents_retrieval_tool
 from .generic import generic_tool
-from .retrieve_documents import retrieve_documents_tool
+from .retrieval_generation import generate_response_tool
 
-__all__ = ["retrieve_documents_tool", "generic_tool", "documents_analysis_tool"]
+__all__ = ["documents_retrieval_tool", "generic_tool", "generate_response_tool"]

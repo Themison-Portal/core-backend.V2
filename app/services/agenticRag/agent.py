@@ -9,9 +9,9 @@ from langgraph.prebuilt import ToolNode, tools_condition
 
 from app.core.openai import llm
 from app.services.agenticRag.tools import (
-    documents_analysis_tool,
+    documents_retrieval_tool,
+    generate_response_tool,
     generic_tool,
-    retrieve_documents_tool,
 )
 
 # usage: rag_agent = RagAgent().create_graph()
@@ -26,10 +26,23 @@ class RagAgent:
     """
     
     def __init__(self):
-        self.tools = [retrieve_documents_tool, documents_analysis_tool, generic_tool]
+        self.tools = [
+            documents_retrieval_tool, 
+            generic_tool,
+            generate_response_tool
+        ]
         self.llm_with_tools = llm.bind_tools(self.tools)
         self.system_message = SystemMessage(
-            content="You are a helpful agent tasked with finding and explaining relevant information about movies."
+            content="""You are a helpful agent tasked with finding and explaining relevant information about movies.
+
+            You have access to these tools:
+            - documents_retrieval_tool: Find relevant documents from the knowledge base
+            - generate_response_tool: Create comprehensive answers based on retrieved information
+            - generic_tool: Handle general queries not covered by other tools
+            
+            Choose the most appropriate tool(s) based on the user's specific query. 
+            Consider whether they need document retrieval, analysis, or general information.
+            You can use multiple tools in sequence if needed."""
         )
     
     def create_graph(self):
