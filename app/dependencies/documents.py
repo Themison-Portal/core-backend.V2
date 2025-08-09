@@ -10,9 +10,6 @@ from app.dependencies.db import get_db
 from app.dependencies.providers import get_storage_provider
 from app.services.indexing.document_service import DocumentService
 from app.services.interfaces.document_service import IDocumentService
-from app.services.retrieval.retrieval_generation_service import (
-    RetrievalGenerationService,
-)
 
 
 async def get_document_service(
@@ -24,8 +21,3 @@ async def get_document_service(
         db=db,
         storage_provider=storage_provider
     )
-
-async def get_rag_service(
-) -> RetrievalGenerationService:
-    """Get RAG service instance with all required dependencies"""
-    return RetrievalGenerationService() 

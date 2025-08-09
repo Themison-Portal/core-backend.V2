@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from app.contracts.document import DocumentResponse
 from app.dependencies.auth import get_current_user
-from app.dependencies.rag import get_document_service
+from app.dependencies.documents import get_document_service
 from app.services.indexing.document_service import DocumentService
 
 router = APIRouter()
