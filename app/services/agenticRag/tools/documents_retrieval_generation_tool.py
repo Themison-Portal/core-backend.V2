@@ -35,7 +35,6 @@ def generate_response(
     Generate a response to the query based on the retrieved documents.
     """
     try:
-        # Format retrieved documents into context
         context = ""
         for i, doc in enumerate(retrieved_documents):
             source = doc.get('metadata', {}).get('source', 'Unknown')
@@ -43,7 +42,6 @@ def generate_response(
             content = doc.get('content', 'No content available')
             context += f"\nDocument {i+1} (Source: {source}, Page: {page}):\n{content}\n"
         
-        # Create a structured prompt
         prompt = f"""
         User Query: {query}
         
@@ -55,7 +53,6 @@ def generate_response(
         Include citations to the specific documents you reference.
         """
         
-        # Call the LLM and return response
         response = llm.invoke(prompt)
         return response.content
         

@@ -31,22 +31,18 @@ async def process_query(
     Process a query and return response
     """
     try:
-        # Create agent
         rag_agent_instance = RagAgent()
         compiled_graph = rag_agent_instance.create_graph(document_ids=request.document_ids)
         
-        # Process the query
         result = compiled_graph.invoke(
             {"messages": [HumanMessage(content=request.message)]},
             config={"configurable": {"thread_id": request.user_id}}
         )
         
-        # Extract comprehensive information from the result
         response = "No response generated"
         tool_calls = []
         
         if result.get('messages') and len(result['messages']) > 0:
-            # Get the last message which should be the agent's response
             final_message = result['messages'][-1]
             response = final_message.content
         
@@ -54,7 +50,6 @@ async def process_query(
         if 'tool_calls' in result:
             tool_calls = result['tool_calls']
         elif result.get('messages'):
-            # Check if tool_calls are in any of the messages
             for msg in result['messages']:
                 if hasattr(msg, 'tool_calls') and msg.tool_calls:
                     tool_calls = msg.tool_calls
@@ -71,7 +66,7 @@ async def process_query(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@router.get("/get_chat_history")
+@router.get("/get-chat-history")
 async def get_chat_history(
     user_id: str,
     current_user: dict = Depends(get_current_user)

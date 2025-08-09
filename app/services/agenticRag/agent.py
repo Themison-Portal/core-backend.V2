@@ -50,7 +50,6 @@ class RagAgent:
         self.chat_history = InMemoryChatMessageHistory()
         self.document_ids = []
         
-    # Define the function that determines whether to continue or not
     def should_continue(self, state: MessagesState) -> Literal["end", "continue"]:
         """
         Determine whether to continue or not.
@@ -59,10 +58,8 @@ class RagAgent:
         """
         messages = state["messages"]
         last_message = messages[-1]
-        # If there is no tool call, then we finish
         if not last_message.tool_calls:
             return "end"
-        # Otherwise if there is, we continue
         else:
             return "continue"
     
@@ -125,18 +122,10 @@ class RagAgent:
         """
         The agent node that processes messages and returns state updates.
         """
-        # Process the message with tools and return the result
         result = self.llm_with_tools.invoke([self.system_message] + state["messages"])
         
+        tool_calls = result.tool_calls
         
-        # Extract tool_calls properly - check multiple possible locations
-        tool_calls = []
-        if hasattr(result, 'tool_calls') and result.tool_calls:
-            tool_calls = result.tool_calls
-        elif hasattr(result, 'additional_kwargs') and 'tool_calls' in result.additional_kwargs:
-            tool_calls = result.additional_kwargs['tool_calls']
-        
-        # Return messages plus reasoning and tool_calls
         response = {
             "messages": [result],
             "tool_calls": tool_calls
