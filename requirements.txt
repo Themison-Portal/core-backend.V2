@@ -13,6 +13,7 @@ langchain[openai]
 langchain_community 
 langchain_openai
 langchain_text_splitters
+langgraph
 pypdf
 openai
 sqlalchemy
