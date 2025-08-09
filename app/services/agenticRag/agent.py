@@ -5,7 +5,7 @@ This module contains the RAG agent.
 from typing import List, Literal
 
 from langchain_core.chat_history import InMemoryChatMessageHistory
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import AIMessage, SystemMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
@@ -58,10 +58,9 @@ class RagAgent:
         """
         messages = state["messages"]
         last_message = messages[-1]
-        if not last_message.tool_calls:
-            return "end"
-        else:
-            return "continue"
+        if isinstance(last_message, AIMessage) and last_message.tool_calls:
+            return "tools"
+        return END
     
     def create_graph(self, document_ids: List[str] = None):
         """
