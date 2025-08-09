@@ -2,16 +2,17 @@
 This module contains the RAG agent.
 """
 
+from typing import List, Literal
+
 from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_core.messages import SystemMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
-from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.prebuilt import ToolNode
 
 from app.core.openai import llm
 from app.services.agenticRag.tools import (
-    documents_retrieval_tool,
-    generate_response_tool,
+    documents_retrieval_generation_tool,
     generic_tool,
 )
 
@@ -32,29 +33,59 @@ class RagAgent:
     
     def __init__(self):
         self.tools = [
-            documents_retrieval_tool, 
             generic_tool,
-            generate_response_tool
+            documents_retrieval_generation_tool
         ]
         self.llm_with_tools = llm.bind_tools(self.tools)
         self.system_message = SystemMessage(
-            content="""You are a helpful agent tasked with finding and explaining relevant information about movies.
+            content="""You are a helpful agent that MUST use tools to answer questions.
 
-            You have access to these tools:
-            - documents_retrieval_tool: Find relevant documents from the knowledge base
-            - generate_response_tool: Create comprehensive answers based on retrieved information
-            - generic_tool: Handle general queries not covered by other tools
+            Available tools:
+            - documents_retrieval_generation_tool: Use this to search documents and generate responses
+            - generic_tool: Use this for general queries
             
-            Choose the most appropriate tool(s) based on the user's specific query. 
-            Consider whether they need document retrieval, analysis, or general information.
-            You can use multiple tools in sequence if needed."""
+            IMPORTANT: Always use the appropriate tool(s) to answer user questions. 
+            Do not answer directly without using tools."""
         )
         self.chat_history = InMemoryChatMessageHistory()
+        self.document_ids = []
+        
+    # Define the function that determines whether to continue or not
+    def should_continue(self, state: MessagesState) -> Literal["end", "continue"]:
+        """
+        Determine whether to continue or not.
+        If there is no tool call, then we finish
+        Otherwise if there is, we continue
+        """
+        messages = state["messages"]
+        last_message = messages[-1]
+        # If there is no tool call, then we finish
+        if not last_message.tool_calls:
+            return "end"
+        # Otherwise if there is, we continue
+        else:
+            return "continue"
     
-    def create_graph(self):
+    def create_graph(self, document_ids: List[str] = None):
         """
         Create the graph for the RAG agent.
         """
+        if document_ids:
+            self.document_ids = document_ids
+        
+        # Update system message to include document_ids context
+        if document_ids:
+            self.system_message = SystemMessage(
+                content=f"""You are a helpful agent tasked with finding and explaining relevant information about movies.
+
+                You have access to these tools:
+                - documents_retrieval_tool: Find relevant documents from the knowledge base (use document_ids: {document_ids} to search specific documents)
+                - generate_response_tool: Create comprehensive answers based on retrieved information
+                - generic_tool: Handle general queries not covered by other tools
+                
+                The user has specified document IDs: {document_ids}. Use the documents_retrieval_tool with these IDs when searching for information.
+                Choose the most appropriate tool(s) based on the user's specific query."""
+            )
         
         graph = StateGraph(MessagesState)
         
@@ -64,10 +95,23 @@ class RagAgent:
         graph.add_edge(START, "agent")
         # from langgraph to determine whether or not to use tools
         graph.add_conditional_edges(
+            # First, we define the start node. We use `agent`.
+            # This means these are the edges taken after the `agent` node is called.
             "agent",
-            # If the latest message (result) from agent is a tool call -> tools_condition routes to tools
-            # If the latest message (result) from agent is a not a tool call -> tools_condition routes to END
-            tools_condition,
+            # Next, we pass in the function that will determine which node is called next.
+            self.should_continue,
+            # Finally we pass in a mapping.
+            # The keys are strings, and the values are other nodes.
+            # END is a special node marking that the graph should finish.
+            # What will happen is we will call `should_continue`, and then the output of that
+            # will be matched against the keys in this mapping.
+            # Based on which one it matches, that node will then be called.
+            {
+                # If `tools`, then we call the tool node.
+                "continue": "tools",
+                # Otherwise we finish.
+                "end": END,
+            },
         )
         
         graph.add_edge("tools", "agent")
@@ -79,17 +123,31 @@ class RagAgent:
 
     def agent(self, state: MessagesState):
         """
-        The agent node with streaming support.
+        The agent node that processes messages and returns state updates.
         """
-        # Use astream for streaming responses
-        async def stream_response():
-            async for chunk in self.llm_with_tools.astream([self.system_message] + state["messages"]):
-                yield chunk
+        # Process the message with tools and return the result
+        result = self.llm_with_tools.invoke([self.system_message] + state["messages"])
         
-        return stream_response()
-
+        
+        # Extract tool_calls properly - check multiple possible locations
+        tool_calls = []
+        if hasattr(result, 'tool_calls') and result.tool_calls:
+            tool_calls = result.tool_calls
+        elif hasattr(result, 'additional_kwargs') and 'tool_calls' in result.additional_kwargs:
+            tool_calls = result.additional_kwargs['tool_calls']
+        
+        # Return messages plus reasoning and tool_calls
+        response = {
+            "messages": [result],
+            "tool_calls": tool_calls
+        }
+        
+        return response
 
     def get_chat_history(self, session_id: str) -> InMemoryChatMessageHistory:
+        """
+        Get the chat history for a given session id.
+        """
         chat_history = self.chat_history.get(session_id)
         if chat_history is None:
             chat_history = InMemoryChatMessageHistory()

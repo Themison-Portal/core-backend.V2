@@ -9,10 +9,10 @@ from app.config import get_settings
 settings = get_settings()
 
 llm = ChatOpenAI(
+    api_key=settings.openai_api_key,
     model="gpt-4.1-mini",
     streaming=True,
     temperature=0.5,
-    api_key=settings.openai_api_key
 )
 
 embedding_client = OpenAIEmbeddings(

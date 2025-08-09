@@ -5,7 +5,6 @@ Query routes
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
@@ -29,30 +28,45 @@ async def process_query(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Process a query with streaming response
+    Process a query and return response
     """
     try:
-        # Create streaming agent
-        rag_agent = RagAgent().create_graph()
+        # Create agent
+        rag_agent_instance = RagAgent()
+        compiled_graph = rag_agent_instance.create_graph(document_ids=request.document_ids)
         
-        # Create streaming generator
-        async def generate_stream():
-            async for chunk in rag_agent.astream(
-                {"messages": [HumanMessage(content=request.message)]},
-                config={"configurable": {"thread_id": request.user_id}}
-            ):
-                # Extract content from the chunk
-                if hasattr(chunk, 'messages') and chunk.messages:
-                    for message in chunk.messages:
-                        if hasattr(message, 'content') and message.content:
-                            yield f"data: {message.content}\n\n"
-                elif hasattr(chunk, 'content') and chunk.content:
-                    yield f"data: {chunk.content}\n\n"
-        
-        return StreamingResponse(
-            generate_stream(),
-            media_type="text/event-stream"
+        # Process the query
+        result = compiled_graph.invoke(
+            {"messages": [HumanMessage(content=request.message)]},
+            config={"configurable": {"thread_id": request.user_id}}
         )
+        
+        # Extract comprehensive information from the result
+        response = "No response generated"
+        tool_calls = []
+        
+        if result.get('messages') and len(result['messages']) > 0:
+            # Get the last message which should be the agent's response
+            final_message = result['messages'][-1]
+            response = final_message.content
+        
+        # Extract tool_calls from the result
+        if 'tool_calls' in result:
+            tool_calls = result['tool_calls']
+        elif result.get('messages'):
+            # Check if tool_calls are in any of the messages
+            for msg in result['messages']:
+                if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                    tool_calls = msg.tool_calls
+                    break
+                elif hasattr(msg, 'additional_kwargs') and 'tool_calls' in msg.additional_kwargs:
+                    tool_calls = msg.additional_kwargs['tool_calls']
+                    break
+ 
+        return {
+            "response": response,
+            "tool_calls": tool_calls,
+        }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
