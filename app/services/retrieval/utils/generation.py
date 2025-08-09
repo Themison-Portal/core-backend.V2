@@ -20,7 +20,6 @@ def generate_response(query: str, retrieved_documents: List[Dict[Any, Any]]) -> 
 
     # Format retrieved documents into context
     context = ""
-    print(f"retrieved_documents: {retrieved_documents}")
     for i, doc in enumerate(retrieved_documents):
         source = doc.get('metadata', {}).get('source', 'Unknown')
         page = doc.get('metadata', {}).get('page', 'Unknown')

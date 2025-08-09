@@ -4,20 +4,19 @@ Retrieval generation service
 
 from typing import Any, AsyncGenerator, Dict, List
 
-from app.core.embeddings import EmbeddingProvider
 from app.services.interfaces.query_service import IRetrievalGenerationService
 from app.services.retrieval.retriever import create_retriever, preprocess_query
 from app.services.retrieval.utils.generation import call_llm_stream, generate_response
 
 
+# Entry point for query rag pipeline
 class RetrievalGenerationService(IRetrievalGenerationService):
     """
     Retrieval generation service
     """
 
-    def __init__(self, embedding_provider: EmbeddingProvider):
-        self.embedding_provider = embedding_provider
-        self.retriever = create_retriever(embedding_provider, match_count=5, query_chunk_size=500)
+    def __init__(self):
+        self.retriever = create_retriever(match_count=5, query_chunk_size=500)
 
             
     async def process_query(self, query: str) -> AsyncGenerator[str, None]:

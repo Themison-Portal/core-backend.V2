@@ -12,13 +12,6 @@ from app.dependencies.db import get_db
 from app.main import app_state
 
 
-def get_embedding_provider() -> EmbeddingProvider:
-    """Get embedding provider instance from app state (loaded at startup)"""
-    if "embedding_provider" not in app_state:
-        # Fallback to lazy loading if not in app state (e.g., during testing)
-        return OpenAIEmbeddingProvider()
-    return app_state["embedding_provider"]
-
 def get_storage_provider(
     db: AsyncSession = Depends(get_db)
 ) -> StorageProvider:

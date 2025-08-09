@@ -8,12 +8,11 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 from langchain_core.documents import Document
 
-from app.core.embeddings import EmbeddingProvider
+from app.core.openAI import embedding_client
 from app.core.supabase_client import supabase_client
 from app.services.indexing.utils.chunking import chunk_documents
 from app.services.utils.preprocessing import preprocess_text
 
-supabase = supabase_client()
 
 def preprocess_query(query: str) -> str:
     """Clean and normalize the query text using the same preprocessing as documents."""
@@ -78,7 +77,6 @@ async def aggregate_search_results(
     return ranked_docs[:max_results]
 
 def create_retriever(
-    embedding_provider: EmbeddingProvider,
     match_count: int = 10,
     query_chunk_size: int = 500,
 ):  
@@ -104,24 +102,21 @@ def create_retriever(
             
             # Search with each chunk
             chunk_results = []
-            for i, chunk in enumerate(query_chunks):
+            for _, chunk in enumerate(query_chunks):
                 
                 # Generate embedding for this chunk
-                embeddings = await embedding_provider.get_embeddings_batch([chunk])
-                chunk_embedding = embeddings[0]
-                print(f"chunk_embedding: {chunk_embedding}")
-                
-                # Convert embedding to PostgreSQL vector format
-                embedding_vector = f"[{','.join(map(str, chunk_embedding))}]"
-                
+                # aembed_query returns a list of embeddings
+                embeddings = await embedding_client.aembed_query([chunk])
+                                 
                 # Search with this chunk
                 count = override_match_count if override_match_count is not None else match_count
                 result = await asyncio.to_thread(
-                    lambda: supabase.rpc(
+                    # to avoid late binding of variables
+                    lambda chunk=chunk, embeddings=embeddings, count=count: supabase_client().rpc(
                         "hybrid_search",
                         {
                             "query_text": chunk,
-                            "query_embedding": embedding_vector,  # Pass as vector string
+                            "query_embedding": embeddings,
                             "match_count": count
                         }
                     ).execute()
@@ -135,20 +130,15 @@ def create_retriever(
             return final_results
         else:
             # Use original single-query approach for short queries
-            embeddings = await embedding_provider.get_embeddings_batch([processed_query])
-            query_embedding = embeddings[0]
-            print(f"query_embedding: {type(query_embedding)}")
-            
-            # Convert embedding to PostgreSQL vector format
-            embedding_vector = f"[{','.join(map(str, query_embedding))}]"
+            embeddings = await embedding_client.aembed_query([processed_query])
             
             count = override_match_count if override_match_count is not None else match_count        
             result = await asyncio.to_thread(
-                lambda: supabase.rpc(
+                lambda: supabase_client().rpc(
                     "hybrid_search",
                     {
                         "query_text": processed_query,
-                        "query_embedding": embedding_vector,  # Pass as vector string
+                        "query_embedding": embeddings,  # Pass as vector string
                         "match_count": count
                     }
                 ).execute()

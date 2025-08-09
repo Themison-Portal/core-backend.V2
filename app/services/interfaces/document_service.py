@@ -1,7 +1,7 @@
 """
 Document service interface
 """
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from uuid import UUID
 
 from langchain_core.documents import Document

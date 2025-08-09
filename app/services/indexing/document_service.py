@@ -2,20 +2,18 @@
 This module contains the document service.
 """
 import io
-from datetime import UTC, datetime
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any, Dict, List
 from uuid import UUID, uuid4
 
 import pypdf as PyPDF2
 import requests
-from fastapi import UploadFile
 from langchain_core.documents import Document
-from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.contracts.document import DocumentCreate, DocumentResponse
-from app.core.embeddings import EmbeddingProvider
+from app.contracts.document import DocumentResponse
+from app.core.openai import embedding_client
 from app.core.storage import StorageProvider
 from app.db.session import engine
 from app.models.base import Base
@@ -36,12 +34,11 @@ class DocumentService(IDocumentService):
     def __init__(
         self, 
         db: AsyncSession,
-        embedding_provider: EmbeddingProvider,
         storage_provider: StorageProvider
     ):
         self.db = db
-        self.embedding_provider = embedding_provider
         self.storage_provider = storage_provider
+        self.embedding_client = embedding_client
     
     async def parse_pdf(self, document_url: str) -> str:
         """
@@ -49,7 +46,7 @@ class DocumentService(IDocumentService):
         """
         try:
             # Read PDF content
-            response = requests.get(document_url)
+            response = requests.get(document_url, timeout=10)
             content = response.content
             pdf_file = io.BytesIO(content)
             
@@ -143,14 +140,15 @@ class DocumentService(IDocumentService):
             # Step 3: Chunk content first
             metadata = {"filename": document_filename, "content_type": "application/pdf"}
             chunks = chunk_text(
-                preprocessed_content, 
-                metadata, 
-                chunk_size, 
+                preprocessed_content,
+                metadata,
+                chunk_size,
             )
             
             # Step 4: Generate embeddings for each chunk
             texts = [chunk.page_content for chunk in chunks]
-            chunk_embeddings = await self.embedding_provider.get_embeddings_batch(texts)
+            
+            chunk_embeddings = await self.embedding_client.aembed_documents(texts)
         
             # Step 5: Process existing document and add chunks
             document_title = document_filename or "Untitled Document"

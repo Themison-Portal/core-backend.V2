@@ -3,7 +3,6 @@ Main application file
 """
 
 import os
-from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
@@ -12,7 +11,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes.auth import router as auth_router
 from app.api.routes.query import router as query_router
 from app.api.routes.upload import router as upload_router
-from app.core.embeddings import OpenAIEmbeddingProvider
 from app.dependencies.auth import auth
 
 load_dotenv()
@@ -20,18 +18,7 @@ load_dotenv()
 # Application state for storing loaded models
 app_state = {}
 
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    """
-    Lifespan for the application
-    """
-    # Initialize embedding provider at startup
-    app_state["embedding_provider"] = OpenAIEmbeddingProvider()
-    yield
-    # Clean up
-    app_state.clear()
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[os.getenv("FRONTEND_URL") or "http://localhost:3000"],  # Your frontend URL

@@ -9,7 +9,6 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from app.api.routes.auth import get_current_user
-from app.dependencies.providers import get_embedding_provider
 from app.services.retrieval.retrieval_generation_service import (
     RetrievalGenerationService,
 )
@@ -29,8 +28,7 @@ async def get_rag_service() -> RetrievalGenerationService:
     """
     Get the RAG service
     """
-    embedding_provider = get_embedding_provider()
-    return RetrievalGenerationService(embedding_provider)
+    return RetrievalGenerationService();
 
 @router.post("")
 async def process_query(
