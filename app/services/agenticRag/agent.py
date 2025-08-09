@@ -77,7 +77,6 @@ class RagAgent:
 
                 You have access to these tools:
                 - documents_retrieval_tool: Find relevant documents from the knowledge base (use document_ids: {document_ids} to search specific documents)
-                - generate_response_tool: Create comprehensive answers based on retrieved information
                 - generic_tool: Handle general queries not covered by other tools
                 
                 The user has specified document IDs: {document_ids}. Use the documents_retrieval_tool with these IDs when searching for information.
