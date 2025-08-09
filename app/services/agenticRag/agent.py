@@ -71,8 +71,13 @@ class RagAgent:
         return graph.compile(checkpointer=checkpointer)
         
 
-    def agent(self,state: MessagesState):
+    def agent(self, state: MessagesState):
         """
-        The agent node.
+        The agent node with streaming support.
         """
-        return {"messages": [self.llm_with_tools.invoke([self.system_message] + state["messages"])]}
+        # Use astream for streaming responses
+        async def stream_response():
+            async for chunk in self.llm_with_tools.astream([self.system_message] + state["messages"]):
+                yield chunk
+        
+        return stream_response()

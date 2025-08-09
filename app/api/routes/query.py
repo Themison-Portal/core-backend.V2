@@ -26,22 +26,33 @@ class QueryRequest(BaseModel):
 @router.post("")
 async def process_query(
     request: QueryRequest,
-    rag_agent: RagAgent = Depends(RagAgent().create_graph()),
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Process a query
+    Process a query with streaming response
     """
     try:
-
-        # Full RAG pipeline with streaming response
-        generator = await rag_agent.invoke(
-            {"messages": [HumanMessage(content=request.message)]},
-            config={"configurable": {"thread_id": request.user_id}}
-        )
+        # Create streaming agent
+        rag_agent = RagAgent().create_graph()
+        
+        # Create streaming generator
+        async def generate_stream():
+            async for chunk in rag_agent.astream(
+                {"messages": [HumanMessage(content=request.message)]},
+                config={"configurable": {"thread_id": request.user_id}}
+            ):
+                # Extract content from the chunk
+                if hasattr(chunk, 'messages') and chunk.messages:
+                    for message in chunk.messages:
+                        if hasattr(message, 'content') and message.content:
+                            yield f"data: {message.content}\n\n"
+                elif hasattr(chunk, 'content') and chunk.content:
+                    yield f"data: {chunk.content}\n\n"
+        
         return StreamingResponse(
-            generator,
+            generate_stream(),
             media_type="text/event-stream"
         )
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
