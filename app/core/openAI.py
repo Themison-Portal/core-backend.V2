@@ -4,7 +4,7 @@ OpenAI client
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-chat_client = ChatOpenAI(
+llm = ChatOpenAI(
     model="gpt-4.1-mini",
     streaming=True,
     temperature=0.5

@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 
 from dotenv import load_dotenv
 
-from app.core.openai import chat_client
+from app.core.openai import llm
 
 load_dotenv()
 
@@ -45,7 +45,7 @@ async def call_llm_stream(prompt):
     """
     try:
         # LangChain streaming approach
-        async for chunk in chat_client.astream(prompt):
+        async for chunk in llm.astream(prompt):
             if chunk.content:
                 yield chunk.content
     except Exception as e:
