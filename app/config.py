@@ -15,7 +15,6 @@ class Settings(BaseSettings):
     supabase_service_key: str
     openai_api_key: str
     supabase_db_url: str
-    embedding_model: str
     supabase_anon_key: str = ""  # Optional
     supabase_db_password: str = ""  # Optional
     frontend_url: str = "http://localhost:3000"  # Optional with default

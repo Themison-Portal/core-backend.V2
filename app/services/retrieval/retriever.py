@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 from langchain_core.documents import Document
 
-from app.core.openAI import embedding_client
+from app.core.openai import embedding_client
 from app.core.supabase_client import supabase_client
 from app.services.indexing.utils.chunking import chunk_documents
 from app.services.utils.preprocessing import preprocess_text

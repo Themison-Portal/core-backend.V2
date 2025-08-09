@@ -59,6 +59,8 @@ class DocumentService(IDocumentService):
             
             if not text_content.strip():
                 raise ValueError("No text content found in PDF")
+            
+            print(len(text_content))
                 
             return text_content
             

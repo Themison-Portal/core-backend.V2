@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 
 from dotenv import load_dotenv
 
-from app.core.openAI import chat_client
+from app.core.openai import chat_client
 
 load_dotenv()
 
