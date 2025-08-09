@@ -2,6 +2,7 @@
 This module contains the RAG agent.
 """
 
+from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_core.messages import SystemMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
@@ -23,6 +24,10 @@ from app.services.agenticRag.tools import (
 class RagAgent:
     """
     A class that represents a RAG agent.
+    
+    it temporary uses in memory chat history to store the chat history
+    this is not a good practice and should be replaced with a database
+    but for now it is a good way to test the agent
     """
     
     def __init__(self):
@@ -44,6 +49,7 @@ class RagAgent:
             Consider whether they need document retrieval, analysis, or general information.
             You can use multiple tools in sequence if needed."""
         )
+        self.chat_history = InMemoryChatMessageHistory()
     
     def create_graph(self):
         """
@@ -81,3 +87,11 @@ class RagAgent:
                 yield chunk
         
         return stream_response()
+
+
+    def get_chat_history(self, session_id: str) -> InMemoryChatMessageHistory:
+        chat_history = self.chat_history.get(session_id)
+        if chat_history is None:
+            chat_history = InMemoryChatMessageHistory()
+            self.chat_history[session_id] = chat_history
+        return chat_history

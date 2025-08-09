@@ -56,3 +56,16 @@ async def process_query(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@router.get("/get_chat_history")
+async def get_chat_history(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get chat history
+    """
+    try:
+        return RagAgent().get_chat_history(user_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
