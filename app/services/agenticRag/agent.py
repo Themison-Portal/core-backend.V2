@@ -33,14 +33,13 @@ class RagAgent:
         Create the graph for the RAG agent.
         """
         
-        # State
-
         graph = StateGraph(MessagesState)
         
         graph.add_node("assistant", self.assistant)
         graph.add_node("tools", ToolNode(self.tools))
         
         graph.add_edge(START, "assistant")
+        # from langgraph to determine whether or not to use tools
         graph.add_conditional_edges(
             "assistant",
             # If the latest message (result) from assistant is a tool call -> tools_condition routes to tools
