@@ -3,6 +3,7 @@ This module contains the RAG agent.
 """
 
 from langchain_core.messages import SystemMessage
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
@@ -12,8 +13,12 @@ from app.services.agenticRag.tools import (
     generic_tool,
     retrieve_documents_tool,
 )
-from app.services.retrieval.retriever import create_retriever
 
+# usage: rag_agent = RagAgent().create_graph()
+# rag_agent.invoke(
+#     {"messages": [HumanMessage(content="Explain what a list is in Python")]},
+#     config={"configurable": {"thread_id": 'session token from frontend'}}
+# )
 
 class RagAgent:
     """
@@ -21,11 +26,10 @@ class RagAgent:
     """
     
     def __init__(self):
-        self.retriever = create_retriever(match_count=5, query_chunk_size=500)
         self.tools = [retrieve_documents_tool, documents_analysis_tool, generic_tool]
         self.llm_with_tools = llm.bind_tools(self.tools)
         self.system_message = SystemMessage(
-            content="You are a helpful assistant tasked with finding and explaining relevant information about movies."
+            content="You are a helpful agent tasked with finding and explaining relevant information about movies."
         )
     
     def create_graph(self):
@@ -35,25 +39,27 @@ class RagAgent:
         
         graph = StateGraph(MessagesState)
         
-        graph.add_node("assistant", self.assistant)
+        graph.add_node("agent", self.agent)
         graph.add_node("tools", ToolNode(self.tools))
         
-        graph.add_edge(START, "assistant")
+        graph.add_edge(START, "agent")
         # from langgraph to determine whether or not to use tools
         graph.add_conditional_edges(
-            "assistant",
-            # If the latest message (result) from assistant is a tool call -> tools_condition routes to tools
-            # If the latest message (result) from assistant is a not a tool call -> tools_condition routes to END
+            "agent",
+            # If the latest message (result) from agent is a tool call -> tools_condition routes to tools
+            # If the latest message (result) from agent is a not a tool call -> tools_condition routes to END
             tools_condition,
         )
         
-        graph.add_edge("tools", "assistant")
-        graph.add_edge("assistant", END)
+        graph.add_edge("tools", "agent")
+        graph.add_edge("agent", END)
+        checkpointer = MemorySaver()
         
-        return graph.compile()
+        return graph.compile(checkpointer=checkpointer)
+        
 
-    def assistant(self,state: MessagesState):
+    def agent(self,state: MessagesState):
         """
-        The assistant node.
+        The agent node.
         """
         return {"messages": [self.llm_with_tools.invoke([self.system_message] + state["messages"])]}
