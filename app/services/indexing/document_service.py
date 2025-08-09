@@ -32,7 +32,7 @@ class DocumentService(IDocumentService):
     A service that handles document indexing and chunking.
     """
     def __init__(
-        self, 
+        self,
         db: AsyncSession,
         storage_provider: StorageProvider
     ):
