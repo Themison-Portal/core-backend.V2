@@ -89,6 +89,8 @@ class DocumentService(IDocumentService):
             if not document:
                 raise ValueError(f"Document {document_id} not found. Frontend should create it first.")
             
+            print(document)
+            
             # Document already exists, no need to update non-existent columns
             # Just proceed to add chunks
                         

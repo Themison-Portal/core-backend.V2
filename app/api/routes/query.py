@@ -31,6 +31,7 @@ async def process_query(
     Process a query and return response
     """
     try:
+        print(request.document_ids)
         rag_agent_instance = RagAgent()
         compiled_graph = rag_agent_instance.create_graph(document_ids=request.document_ids)
         
@@ -57,6 +58,7 @@ async def process_query(
                 elif hasattr(msg, 'additional_kwargs') and 'tool_calls' in msg.additional_kwargs:
                     tool_calls = msg.additional_kwargs['tool_calls']
                     break
+        print(tool_calls, response)
  
         return {
             "response": response,

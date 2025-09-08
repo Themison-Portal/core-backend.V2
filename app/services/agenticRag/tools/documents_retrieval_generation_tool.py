@@ -50,6 +50,8 @@ def generate_response(
         Based on the above information only, provide a comprehensive answer to the user's query.
         If the information is not sufficient to answer the query, acknowledge this limitation.
         Include citations to the specific documents you reference.
+        
+        Remember to present the documents retrieved as excerpts 1, 2, 3, etc.
         """
         
         response = llm.invoke(prompt)
@@ -93,6 +95,8 @@ def documents_retrieval_generation_tool(
         
         result = supabase_client().rpc("hybrid_search", rpc_params).execute()
 
+        print(result)
+        
         data = result.data if hasattr(result, "data") else []
         
         retrieved_docs = _ensure_serializable(data or [])

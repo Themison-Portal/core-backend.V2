@@ -32,12 +32,14 @@ async def upload_pdf_document(
     """
     Upload a PDF document
     """
+    print(request)
     # Validate file type
     if not request.document_url.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
     
     try:
         # Process existing document through RAG pipeline
+        print(f"Processing document ID: {request.document_id}")
         result = await document_service.process_pdf_complete(
             document_url=request.document_url,
             document_id=request.document_id,  # Reference existing document
@@ -49,7 +51,13 @@ async def upload_pdf_document(
         
     except ValueError as e:
         # Document not found or validation errors
+        print(f"Validation error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
         # Processing or database errors
+        print(f"Runtime error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        # Catch-all for unexpected errors
+        print(f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
