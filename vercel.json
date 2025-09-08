@@ -11,9 +11,5 @@
       "src": "/(.*)",
       "dest": "app/main.py"
     }
-  ],
-  "env": {
-    "PYTHONPATH": "."
-  },
-  "installCommand": "pip install -r requirements-vercel.txt"
+  ]
 }
