@@ -109,7 +109,7 @@ class RagAgent:
         
         response = {
             "messages": [result],
-            "tool_calls": tool_calls
+            "tool_calls": tool_calls,
         }
         
         return response

@@ -40,12 +40,26 @@ async def process_query(
             config={"configurable": {"thread_id": request.user_id}}
         )
         
+        print(result)
+        
         response = "No response generated"
         tool_calls = []
+        tool_results = []
         
-        if result.get('messages') and len(result['messages']) > 0:
-            final_message = result['messages'][-1]
-            response = final_message.content
+        # Extract response and tool results from messages
+        for message in result.get('messages', []):
+            if hasattr(message, 'content') and hasattr(message, 'tool_calls'):
+                # This is a tool result message - parse the content
+                try:
+                    import json
+                    tool_result = json.loads(message.content)
+                    tool_results.append(tool_result)
+                except:
+                    # If not JSON, store as text
+                    tool_results.append({"content": message.content})
+            elif hasattr(message, 'content') and not hasattr(message, 'tool_calls'):
+                # This is the final response
+                response = message.content
         
         # Extract tool_calls from the result
         if 'tool_calls' in result:
@@ -55,14 +69,13 @@ async def process_query(
                 if hasattr(msg, 'tool_calls') and msg.tool_calls:
                     tool_calls = msg.tool_calls
                     break
-                elif hasattr(msg, 'additional_kwargs') and 'tool_calls' in msg.additional_kwargs:
-                    tool_calls = msg.additional_kwargs['tool_calls']
-                    break
-        print(tool_calls, response)
+        
+        print(tool_calls, response, tool_results)
  
         return {
             "response": response,
             "tool_calls": tool_calls,
+            "tool_results": tool_results,  # This will contain your retrieved_documents_metadata
         }
         
     except Exception as e:
