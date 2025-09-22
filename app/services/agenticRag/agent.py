@@ -104,7 +104,7 @@ class RagAgent:
         The agent node that processes messages and returns state updates.
         """
         result = self.llm_with_tools.invoke([self.system_message] + state["messages"])
-        
+        # print(result)        
         tool_calls = result.tool_calls
         
         response = {

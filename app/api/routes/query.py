@@ -31,7 +31,6 @@ async def process_query(
     Process a query and return response
     """
     try:
-        print(request.document_ids)
         rag_agent_instance = RagAgent()
         compiled_graph = rag_agent_instance.create_graph(document_ids=request.document_ids)
         
@@ -39,26 +38,27 @@ async def process_query(
             {"messages": [HumanMessage(content=request.message)]},
             config={"configurable": {"thread_id": request.user_id}}
         )
-        
-        print(result)
-        
+                
         response = "No response generated"
         tool_calls = []
-        tool_results = []
+        retrieved_documents = []
+        retrieved_documents_metadata = []
         
         # Extract response and tool results from messages
         for message in result.get('messages', []):
-            if hasattr(message, 'content') and hasattr(message, 'tool_calls'):
-                # This is a tool result message - parse the content
-                try:
-                    import json
-                    tool_result = json.loads(message.content)
-                    tool_results.append(tool_result)
-                except:
-                    # If not JSON, store as text
-                    tool_results.append({"content": message.content})
+            # Check if this is a ToolMessage (result of tool execution)
+            if hasattr(message, 'artifact') and message.artifact:
+                artifact = message.artifact
+                if isinstance(artifact, dict):
+                    retrieved_documents = artifact.get('retrieved_documents', [])
+                    retrieved_documents_metadata = artifact.get('retrieved_documents_metadata', [])
+                    
+            # Check if this is an AIMessage with tool_calls (tool invocation)
+            elif hasattr(message, 'tool_calls') and message.tool_calls:
+                tool_calls = message.tool_calls
+                
+            # Check if this is the final response
             elif hasattr(message, 'content') and not hasattr(message, 'tool_calls'):
-                # This is the final response
                 response = message.content
         
         # Extract tool_calls from the result
@@ -69,13 +69,12 @@ async def process_query(
                 if hasattr(msg, 'tool_calls') and msg.tool_calls:
                     tool_calls = msg.tool_calls
                     break
-        
-        print(tool_calls, response, tool_results)
- 
+         
         return {
             "response": response,
             "tool_calls": tool_calls,
-            "tool_results": tool_results,  # This will contain your retrieved_documents_metadata
+            "retrieved_documents": retrieved_documents,
+            "retrieved_documents_metadata": retrieved_documents_metadata,
         }
         
     except Exception as e:

@@ -109,7 +109,6 @@ def documents_retrieval_generation_tool(
             }
         
         generation = generate_response(query, retrieved_docs)
-        print(retrieved_docs)
         retrieved_docs_metadata = [doc.get('chunk_metadata', {}) for doc in retrieved_docs]
         
         return generation, {
