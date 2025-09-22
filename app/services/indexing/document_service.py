@@ -59,9 +59,7 @@ class DocumentService(IDocumentService):
             
             if not text_content.strip():
                 raise ValueError("No text content found in PDF")
-            
-            print(len(text_content))
-                
+                            
             return text_content
             
         except Exception as e:
@@ -88,14 +86,13 @@ class DocumentService(IDocumentService):
             document = await self.db.get(DocumentTable, document_id)
             if not document:
                 raise ValueError(f"Document {document_id} not found. Frontend should create it first.")
-            
-            print(document)
-            
+                        
             # Document already exists, no need to update non-existent columns
             # Just proceed to add chunks
-                        
+                                    
             # Add chunks that reference the existing document
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+
                 chunk_record = DocumentChunk(
                     id=uuid4(),
                     document_id=document.id,  # Reference existing document
@@ -122,49 +119,140 @@ class DocumentService(IDocumentService):
             await self.db.rollback()
             raise RuntimeError(f"Failed to process document chunks: {str(e)}")
     
+    async def parse_pdf_with_page_info(self, document_url: str, chunk_size: int = 1000) -> tuple[str, List[Dict[str, Any]]]:
+        """
+        Extract text content from PDF file with page boundaries marked.
+        Returns: (combined_text, page_boundaries)
+        """
+        try:
+            # Read PDF content
+            response = requests.get(document_url, timeout=10)
+            content = response.content
+            pdf_file = io.BytesIO(content)
+            
+            # Extract text using PyPDF2
+            pdf_reader = PyPDF2.PdfReader(pdf_file)
+            text_content = ""
+            page_boundaries = []  # Track page boundaries in the combined text
+            
+            for page_num, page in enumerate(pdf_reader.pages):
+                page_text = page.extract_text()
+                if page_text.strip():
+                    start_pos = len(text_content)
+                    text_content += page_text + "\n"
+                    end_pos = len(text_content)
+                    
+                    page_boundaries.append({
+                        "page_number": page_num + 1,
+                        "start_char": start_pos,
+                        "end_char": end_pos
+                    })
+            
+            if not text_content.strip():
+                raise ValueError("No text content found in PDF")
+                
+            return text_content, page_boundaries
+            
+        except Exception as e:
+            raise ValueError(f"Failed to parse PDF: {str(e)}")
+
+    def add_page_metadata_to_chunks(
+        self,
+        chunks: List[Document], 
+        page_boundaries: List[Dict[str, Any]]
+    ) -> List[Document]:
+        """
+        Add page number metadata to existing chunks based on their position in the text.
+        """
+        enhanced_chunks = []
+        
+        for chunk in chunks:
+            start_index = chunk.metadata.get("start_index", 0)
+            chunk_length = len(chunk.page_content)
+            end_index = start_index + chunk_length
+            
+            chunk_pages = []
+            for boundary in page_boundaries:
+                if start_index < boundary["end_char"] and end_index > boundary["start_char"]:
+                    chunk_pages.append(boundary["page_number"])
+            
+            enhanced_metadata = chunk.metadata.copy()
+            enhanced_metadata.update({
+                "page_numbers": chunk_pages,
+                "total_pages_spanned": len(chunk_pages),
+                "end_index": end_index
+            })
+            
+            enhanced_chunk = Document(
+                page_content=chunk.page_content,
+                metadata=enhanced_metadata
+            )
+            enhanced_chunks.append(enhanced_chunk)
+        
+        return enhanced_chunks
+
     async def process_pdf_complete(
         self,
         document_url: str,
-        document_id: UUID,  # Existing document ID from frontend
+        document_id: UUID,
         user_id: UUID = None,
         chunk_size: int = 1000,
     ) -> DocumentResponse:
         """
-        Complete PDF processing pipeline for existing document.
+        Complete PDF processing pipeline for existing document with page tracking.
         """
         
         try:
-            # Step 1: Parse PDF from URL
-            content = await self.parse_pdf(document_url)
+            # Step 1: Parse PDF with page information
+            content, page_boundaries = await self.parse_pdf_with_page_info(document_url, chunk_size)
             document_filename = document_url.split("/")[-1]
+                        
             
-            # Step 2: Preprocess content
-            preprocessed_content = preprocess_text(content)
+            # Step 2: Chunk content using existing chunking logic
+            metadata = {
+                "filename": document_filename, 
+                "content_type": "application/pdf",
+                "total_pages": len(page_boundaries)
+            }
             
-            # Step 3: Chunk content first
-            metadata = {"filename": document_filename, "content_type": "application/pdf"}
             chunks = chunk_text(
-                preprocessed_content,
+                content,
                 metadata,
                 chunk_size,
-            )
+            )        
             
-            # Step 4: Generate embeddings for each chunk
-            texts = [chunk.page_content for chunk in chunks]
+            # Step 3: Add page metadata to chunks
+            enhanced_chunks = self.add_page_metadata_to_chunks(chunks, page_boundaries)
             
-            chunk_embeddings = await self.embedding_client.aembed_documents(texts)
+            # Step 4: Preprocess each chunk's content for embedding
+            preprocessed_chunks = []
+            for chunk in enhanced_chunks:
+                preprocessed_content = preprocess_text(chunk.page_content)
+                preprocessed_chunk = Document(
+                    page_content=preprocessed_content,
+                    metadata=chunk.metadata  # Keep all the page metadata
+                )
+                preprocessed_chunks.append(preprocessed_chunk)
         
-            # Step 5: Process existing document and add chunks
+            
+            # Step 5: Generate embeddings for each chunk
+            texts = [chunk.page_content for chunk in preprocessed_chunks]
+            chunk_embeddings = await self.embedding_client.aembed_documents(texts)
+                    
+            # Step 6: Process existing document and add chunks
+            preprocessed_content = preprocess_text(content)
             document_title = document_filename or "Untitled Document"
             result = await self.insert_document_with_chunks(
                 title=document_title,
-                document_id=document_id,  # Use existing document ID
+                document_id=document_id,
                 content=preprocessed_content,
-                chunks=chunks,
+                chunks=preprocessed_chunks,  # Use enhanced chunks with page info
                 embeddings=chunk_embeddings,
                 metadata=metadata,
                 user_id=user_id
             )
+            
+            print('step 6 done')
             
             return result
             

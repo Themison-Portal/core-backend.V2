@@ -14,6 +14,7 @@ def chunk_text(content: str, metadata: Dict[str, Any] = None, chunk_size: int = 
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         separators=["\n\n", "\n", ". ", " ", ""],
-        keep_separator=True
+        keep_separator=True,
+        add_start_index=True
     )
     return text_splitter.split_documents([doc])

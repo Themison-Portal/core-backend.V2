@@ -32,7 +32,6 @@ async def upload_pdf_document(
     """
     Upload a PDF document
     """
-    print(request)
     # Validate file type
     if not request.document_url.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
@@ -42,8 +41,8 @@ async def upload_pdf_document(
         print(f"Processing document ID: {request.document_id}")
         result = await document_service.process_pdf_complete(
             document_url=request.document_url,
-            document_id=request.document_id,  # Reference existing document
-            user_id=user["id"],  # Fixed: user is dict, not object
+            document_id=request.document_id,
+            user_id=user["id"],
             chunk_size=request.chunk_size,
         )
         
