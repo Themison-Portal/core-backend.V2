@@ -42,7 +42,6 @@ async def process_query(
         response = "No response generated"
         tool_calls = []
         retrieved_documents = []
-        retrieved_documents_metadata = []
         
         # Extract response and tool results from messages
         for message in result.get('messages', []):
@@ -51,7 +50,6 @@ async def process_query(
                 artifact = message.artifact
                 if isinstance(artifact, dict):
                     retrieved_documents = artifact.get('retrieved_documents', [])
-                    retrieved_documents_metadata = artifact.get('retrieved_documents_metadata', [])
                     
             # Check if this is an AIMessage with tool_calls (tool invocation)
             elif hasattr(message, 'tool_calls') and message.tool_calls:
@@ -74,7 +72,6 @@ async def process_query(
             "response": response,
             "tool_calls": tool_calls,
             "retrieved_documents": retrieved_documents,
-            "retrieved_documents_metadata": retrieved_documents_metadata,
         }
         
     except Exception as e:

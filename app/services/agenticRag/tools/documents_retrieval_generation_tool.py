@@ -103,7 +103,6 @@ def documents_retrieval_generation_tool(
         if not retrieved_docs or (len(retrieved_docs) == 1 and "error" in retrieved_docs[0]):
             return {
                 "retrieved_documents": [],
-                "retrieved_documents_metadata": [],
                 "generated_response": "I couldn't find any relevant documents to answer your question. Please try rephrasing your query or check if the documents are available.",
                 "success": False
             }
@@ -114,7 +113,6 @@ def documents_retrieval_generation_tool(
         
         return generation, {
             "retrieved_documents": retrieved_docs_content,
-            "retrieved_documents_metadata": retrieved_docs_metadata,
             "generated_response": generation,
             "success": True
         }
@@ -123,7 +121,6 @@ def documents_retrieval_generation_tool(
         error_msg = f"An error occurred while processing your request: {str(e)}"
         return error_msg, {
             "retrieved_documents": [],
-            "retrieved_documents_metadata": [],
             "generated_response": f"An error occurred while processing your request: {str(e)}",
             "success": False
         }
