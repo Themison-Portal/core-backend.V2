@@ -38,14 +38,17 @@ class RagAgent:
         ]
         self.llm_with_tools = llm.bind_tools(self.tools)
         self.system_message = SystemMessage(
-            content="""You are a helpful agent that MUST use tools to answer questions.
+            content="""You are a helpful agent that uses tools to search documents and provide answers.
 
             Available tools:
             - documents_retrieval_generation_tool: Use this to search documents and generate responses
             - generic_tool: Use this for general queries
-            
-            IMPORTANT: Always use the appropriate tool(s) to answer user questions. 
-            Do not answer directly without using tools."""
+
+            IMPORTANT:
+            1. Always use the documents_retrieval_generation_tool for document-related questions
+            2. When a tool returns a response, use that response as your final answer
+            3. Do not modify or add to the tool's response - return it exactly as provided
+            4. If no tools are needed, answer directly"""
         )
         self.chat_history = InMemoryChatMessageHistory()
         self.document_ids = []
@@ -72,13 +75,14 @@ class RagAgent:
         # Update system message to include document_ids context
         if document_ids:
             self.system_message = SystemMessage(
-                content=f"""You are a helpful agent tasked with finding and explaining relevant information about movies.
+                content=f"""You are a helpful agent specialized in analyzing and explaining information from documents.
 
                 You have access to these tools:
-                - documents_retrieval_tool: Find relevant documents from the knowledge base (use document_ids: {document_ids} to search specific documents)
+                - documents_retrieval_generation_tool: Find relevant documents from the knowledge base (use document_ids: {document_ids} to search specific documents)
                 - generic_tool: Handle general queries not covered by other tools
-                
-                The user has specified document IDs: {document_ids}. Use the documents_retrieval_tool with these IDs when searching for information.
+
+                The user has specified document IDs: {document_ids}. Use the documents_retrieval_generation_tool with these IDs when searching for information.
+                Always use the tool's response directly - do not modify or summarize it further.
                 Choose the most appropriate tool(s) based on the user's specific query."""
             )
         

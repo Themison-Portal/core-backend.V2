@@ -3,7 +3,7 @@ This module contains the user model.
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum as PyEnum
 
 from sqlalchemy import Column, DateTime
@@ -29,5 +29,5 @@ class User(Base):
     email = Column(String(255), unique=True)
     password = Column(UUID(as_uuid=True))
     role: Mapped[UserRole] = Column(SQLEnum(UserRole), default=UserRole.USER)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

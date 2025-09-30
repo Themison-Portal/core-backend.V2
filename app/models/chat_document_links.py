@@ -2,7 +2,7 @@
 This module contains the chat document link model.
 """
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
@@ -18,8 +18,8 @@ class ChatDocumentLink(Base):
     
     chat_session_id = Column(UUID(as_uuid=True), ForeignKey('chat_sessions.id'), primary_key=True)
     document_id = Column(UUID(as_uuid=True), ForeignKey('trial_documents.id'), primary_key=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
     usage_count = Column(Integer, default=1)
-    first_used_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    last_used_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+    first_used_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_used_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

@@ -2,7 +2,7 @@
 This module contains the document chunk model.
 """
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Dict, List
 
 from pgvector.sqlalchemy import Vector
@@ -27,7 +27,7 @@ class DocumentChunk(Base):
     chunk_index: Mapped[int] = Column(Integer, nullable=False)
     chunk_metadata: Mapped[Dict] = Column("chunk_metadata", JSON)
     embedding: Mapped[List[float]] = Column(Vector(1536))
-    created_at: Mapped[datetime] = Column(DateTime, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     # Relationships
     document: Mapped["Document"] = relationship("Document", back_populates="chunks")

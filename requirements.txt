@@ -10,8 +10,9 @@ transformers
 openai
 vecs
 langchain[openai]
-langchain_community 
+langchain_community
 langchain_openai
+langchain_anthropic
 langchain_text_splitters
 langgraph
 langsmith

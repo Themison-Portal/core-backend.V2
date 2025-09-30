@@ -36,26 +36,85 @@ def generate_response(
     try:
         context = ""
         for i, doc in enumerate(retrieved_documents):
-            source = doc.get('metadata', {}).get('source', 'Unknown')
-            page = doc.get('metadata', {}).get('page', 'Unknown')
+            # Extract source from filename or chunk_metadata
+            chunk_metadata = doc.get('chunk_metadata', {})
+            metadata = doc.get('metadata', {})
+
+            source = (
+                metadata.get('filename') or
+                chunk_metadata.get('filename') or
+                metadata.get('source', 'Unknown')
+            )
+
+            # Extract page numbers - could be in different places
+            page_numbers = (
+                chunk_metadata.get('page_numbers') or
+                metadata.get('page_numbers') or
+                ([metadata.get('page')] if metadata.get('page') else [])
+            )
+
+            # Format page display
+            if page_numbers and any(p for p in page_numbers if p is not None):
+                valid_pages = [p for p in page_numbers if p is not None]
+                if len(valid_pages) == 1:
+                    page_display = f"Page {valid_pages[0]}"
+                else:
+                    page_display = f"Pages {'-'.join(map(str, valid_pages))}"
+            else:
+                page_display = "Page Unknown"
+
             content = doc.get('content', 'No content available')
-            context += f"\nDocument {i+1} (Source: {source}, Page: {page}):\n{content}\n"
+            context += f"\nDocument {i+1} ({page_display}, Source: {source}):\n{content}\n"
         
-        prompt = f"""
-        User Query: {query}
+        prompt = f"""You are an expert medical document analyst. Answer the user's question based on the provided document excerpts.
+
+USER QUESTION: {query}
+
+DOCUMENT EXCERPTS:
+{context}
+
+INSTRUCTIONS:
+1. Provide a clear, comprehensive answer to the user's question
+2. Use only information from the provided excerpts
+3. IMPORTANT: When citing information, use the page numbers shown in the document excerpts above
+4. Citation format: [Page X: "exact quote from the document"]
+5. For multi-page spans use: [Pages X-Y: "exact quote"]
+6. If no page numbers available, use: [Document excerpt: "exact quote"]
+7. Every claim should have a citation
+8. Do not repeat the user's question back to them
+
+Provide your response now:"""
         
-        Retrieved Information:
-        {context}
-        
-        Based on the above information only, provide a comprehensive answer to the user's query.
-        If the information is not sufficient to answer the query, acknowledge this limitation.
-        Include citations to the specific documents you reference.
-        
-        Remember to present the documents retrieved with the page numbers based on the metadata accompanying the documents and clarify which document the information is from.
-        """
-        
+        print("🔍 ANTHROPIC REQUEST:")
+        print(f"📝 Query: {query}")
+        print(f"📄 Context length: {len(context)} characters")
+        print("🚀 Sending to Anthropic Claude...")
+
         response = llm.invoke(prompt)
-        return response.content
+        content = response.content
+
+        print("✅ ANTHROPIC RESPONSE RECEIVED:")
+        print(f"📝 Response length: {len(content)} characters")
+        print(f"🔗 Raw response preview: {content[:200]}...")
+
+        # Extract and log citations
+        import re
+        citation_pattern = r'\[Page (\d+): [\'"]([^\'"]+)[\'"]\]'
+        citations_found = re.findall(citation_pattern, content)
+
+        print(f"🎯 CITATIONS EXTRACTED: {len(citations_found)} citations found")
+        for i, (page, quote) in enumerate(citations_found, 1):
+            print(f"  📖 Citation {i}: Page {page} - \"{quote[:50]}{'...' if len(quote) > 50 else ''}\"")
+
+        if not citations_found:
+            print("⚠️  NO CITATIONS FOUND - Checking for general quotes...")
+            general_quotes = re.findall(r'[\'"]([^\'"]{20,})[\'"]', content)
+            if general_quotes:
+                print(f"📝 Found {len(general_quotes[:3])} general quotes without page numbers:")
+                for i, quote in enumerate(general_quotes[:3], 1):
+                    print(f"  💬 Quote {i}: \"{quote[:50]}{'...' if len(quote) > 50 else ''}\"")
+
+        return content
         
     except Exception as e:
         return f"Sorry, I encountered an error generating a response: {str(e)}"
@@ -81,10 +140,17 @@ def documents_retrieval_generation_tool(
     """
     
     try:
+        print("🔍 RAG TOOL STARTED:")
+        print(f"📝 Original query: {query}")
+        print(f"🎯 Document filter: {document_ids}")
+        print(f"📊 Max results: {match_count}")
+
         # Step 1: Document Retrieval
         processed_query = preprocess_query(query)
+        print(f"🔧 Processed query: {processed_query}")
 
         embedding = embedding_client.embed_query(processed_query)
+        print(f"🎯 Generated embedding vector length: {len(embedding)}")
 
         rpc_params = {
             "query_text": processed_query,
@@ -93,12 +159,52 @@ def documents_retrieval_generation_tool(
             "document_ids": document_ids,
         }
         
+        print("🔍 Searching Supabase vector database...")
         result = supabase_client().rpc("hybrid_search", rpc_params).execute()
-        
+
         data = result.data if hasattr(result, "data") else []
-        
+
         retrieved_docs = _ensure_serializable(data or [])
-        
+
+        print(f"📚 RETRIEVED DOCUMENTS: {len(retrieved_docs)} chunks found")
+        for i, doc in enumerate(retrieved_docs[:3], 1):  # Show first 3
+            # Debug: Show all metadata structures
+            chunk_metadata = doc.get('chunk_metadata', {})
+            metadata = doc.get('metadata', {})
+
+            print(f"  🔍 Doc {i} RAW METADATA:")
+            print(f"    - chunk_metadata: {chunk_metadata}")
+            print(f"    - metadata: {metadata}")
+
+            source = (
+                metadata.get('filename') or
+                chunk_metadata.get('filename') or
+                metadata.get('source', 'Unknown')
+            )
+
+            # Extract page numbers - could be in different places
+            page_numbers = (
+                chunk_metadata.get('page_numbers') or
+                metadata.get('page_numbers') or
+                ([metadata.get('page')] if metadata.get('page') else [])
+            )
+
+            print(f"    🔧 EXTRACTED page_numbers: {page_numbers}")
+
+            if page_numbers and any(p for p in page_numbers if p is not None):
+                valid_pages = [p for p in page_numbers if p is not None]
+                if len(valid_pages) == 1:
+                    page_display = f"Page {valid_pages[0]}"
+                else:
+                    page_display = f"Pages {'-'.join(map(str, valid_pages))}"
+                print(f"    ✅ FINAL page_display: {page_display}")
+            else:
+                page_display = "Page Unknown"
+                print(f"    ❌ NO VALID PAGES - page_numbers: {page_numbers}")
+
+            content_preview = doc.get('content', '')[:100] + "..." if len(doc.get('content', '')) > 100 else doc.get('content', '')
+            print(f"  📄 Doc {i}: {source} ({page_display}) - \"{content_preview}\"")
+
         # Step 2: Response Generation
         if not retrieved_docs or (len(retrieved_docs) == 1 and "error" in retrieved_docs[0]):
             return {
@@ -110,7 +216,11 @@ def documents_retrieval_generation_tool(
         generation = generate_response(query, retrieved_docs)
         retrieved_docs_metadata = [doc.get('chunk_metadata', {}) for doc in retrieved_docs]
         retrieved_docs_content = [doc.get('content', '') for doc in retrieved_docs]
-        
+
+        print(f"🎯 FINAL TOOL RESPONSE:")
+        print(f"📝 Generation (length: {len(generation)}): {generation[:100]}...")
+        print(f"📚 Docs metadata: {len(retrieved_docs_metadata)} items")
+
         return generation, {
             "retrieved_documents": retrieved_docs_content,
             "generated_response": generation,

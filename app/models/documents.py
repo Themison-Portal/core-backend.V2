@@ -3,7 +3,7 @@ This module contains the document model.
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import (
@@ -30,12 +30,12 @@ class Document(Base):
     __tablename__ = 'trial_documents'
     
     id: Mapped[UUID] = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    created_at: Mapped[datetime] = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     document_name: Mapped[str] = Column(Text, nullable=False)
     document_type: Mapped[str] = Column(String, nullable=False)
     document_url: Mapped[str] = Column(String, nullable=False)
     trial_id: Mapped[Optional[UUID]] = Column(UUID(as_uuid=True), nullable=True)
-    updated_at: Mapped[Optional[datetime]] = Column(DateTime(timezone=True), nullable=True, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[Optional[datetime]] = Column(DateTime(timezone=True), nullable=True, default=lambda: datetime.now(timezone.utc))
     uploaded_by: Mapped[Optional[UUID]] = Column(UUID(as_uuid=True), nullable=True)
     status: Mapped[Optional[str]] = Column(Text, nullable=True)
     file_size: Mapped[Optional[int]] = Column(BigInteger, nullable=True)
