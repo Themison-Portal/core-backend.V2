@@ -12,8 +12,8 @@ settings = get_settings()
 # Use Anthropic Claude for LLM (better citations)
 llm = ChatAnthropic(
     api_key=settings.anthropic_api_key,
-    model="claude-3-5-haiku-20241022",
-    temperature=0.5,
+    model="claude-sonnet-4-20250514",  # Upgraded from Haiku to Sonnet 4
+    temperature=0.1,  # Lower temp for consistent citation format
 )
 
 # Keep OpenAI for embeddings (faster and more efficient)

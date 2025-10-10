@@ -21,7 +21,7 @@ class UploadDocumentRequest(BaseModel):
     """
     document_url: str
     document_id: UUID
-    chunk_size: Optional[int] = 1000
+    chunk_size: Optional[int] = 750
 
 @router.post("/upload-pdf", response_model=DocumentResponse)
 async def upload_pdf_document(
@@ -38,12 +38,13 @@ async def upload_pdf_document(
     
     try:
         # Process existing document through RAG pipeline
+        # IMPORTANT: Always use 750 for optimal balance between quality and cost
         print(f"Processing document ID: {request.document_id}")
         result = await document_service.process_pdf_complete(
             document_url=request.document_url,
             document_id=request.document_id,
             user_id=user["id"],
-            chunk_size=request.chunk_size,
+            chunk_size=750,  # Fixed at 750 for consistent chunking strategy
         )
         
         return result

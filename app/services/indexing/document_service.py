@@ -119,7 +119,7 @@ class DocumentService(IDocumentService):
             await self.db.rollback()
             raise RuntimeError(f"Failed to process document chunks: {str(e)}")
     
-    async def parse_pdf_with_page_info(self, document_url: str, chunk_size: int = 1000) -> tuple[str, List[Dict[str, Any]]]:
+    async def parse_pdf_with_page_info(self, document_url: str, chunk_size: int = 750) -> tuple[str, List[Dict[str, Any]]]:
         """
         Extract text content from PDF file with page boundaries marked.
         Returns: (combined_text, page_boundaries)
@@ -196,7 +196,7 @@ class DocumentService(IDocumentService):
         document_url: str,
         document_id: UUID,
         user_id: UUID = None,
-        chunk_size: int = 1000,
+        chunk_size: int = 750,
     ) -> DocumentResponse:
         """
         Complete PDF processing pipeline for existing document with page tracking.
@@ -218,7 +218,8 @@ class DocumentService(IDocumentService):
             chunks = chunk_text(
                 content,
                 metadata,
-                chunk_size,
+                chunk_size=chunk_size,
+                chunk_overlap=150
             )        
             
             # Step 3: Add page metadata to chunks

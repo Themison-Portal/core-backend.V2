@@ -66,24 +66,29 @@ def generate_response(
             content = doc.get('content', 'No content available')
             context += f"\nDocument {i+1} ({page_display}, Source: {source}):\n{content}\n"
         
-        prompt = f"""You are an expert medical document analyst. Answer the user's question based on the provided document excerpts.
-
-USER QUESTION: {query}
+        prompt = f"""You are an expert medical document analyst. Answer the user's question using ONLY information from the provided document excerpts.
 
 DOCUMENT EXCERPTS:
 {context}
 
-INSTRUCTIONS:
-1. Provide a clear, comprehensive answer to the user's question
-2. Use only information from the provided excerpts
-3. IMPORTANT: When citing information, use the page numbers shown in the document excerpts above
-4. Citation format: [Page X: "exact quote from the document"]
-5. For multi-page spans use: [Pages X-Y: "exact quote"]
-6. If no page numbers available, use: [Document excerpt: "exact quote"]
-7. Every claim should have a citation
-8. Do not repeat the user's question back to them
+USER QUESTION: {query}
 
-Provide your response now:"""
+CRITICAL RULES FOR CITATIONS:
+1. Every factual claim MUST have a citation immediately after it
+2. Citation format: [Page X: "exact quote from document"]
+3. Quotes must be EXACT text (copy-paste), not paraphrased
+4. Keep quotes SHORT (under 100 characters when possible)
+5. Use the exact page numbers shown in the excerpts above
+6. For multi-page chunks: [Pages X-Y: "exact quote"]
+7. Place citations at the end of the sentence containing the claim
+8. If you cannot find relevant information, say so - do not invent
+
+STYLE:
+- Be comprehensive and clear
+- Do NOT repeat the question back
+- Answer directly and professionally
+
+Provide your answer now:"""
         
         print("🔍 ANTHROPIC REQUEST:")
         print(f"📝 Query: {query}")
@@ -122,7 +127,7 @@ Provide your response now:"""
 @tool(response_format="content_and_artifact")
 def documents_retrieval_generation_tool(
     query: str,
-    match_count: int = 5,
+    match_count: int = 6,  # Balanced between coverage and cost
     document_ids: List[str] = None,
     query_chunk_size: int = 500
 ) -> Dict[str, Any]:
