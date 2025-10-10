@@ -18,6 +18,6 @@ llm = ChatAnthropic(
 
 # Keep OpenAI for embeddings (faster and more efficient)
 embedding_client = OpenAIEmbeddings(
-    model="text-embedding-3-small",
+    model="text-embedding-3-large",
     api_key=settings.openai_api_key
 )
