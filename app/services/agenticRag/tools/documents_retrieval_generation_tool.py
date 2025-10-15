@@ -73,20 +73,38 @@ DOCUMENT EXCERPTS:
 
 USER QUESTION: {query}
 
-CRITICAL RULES FOR CITATIONS:
-1. Every factual claim MUST have a citation immediately after it
-2. Citation format: [Page X: "exact quote from document"]
-3. Quotes must be EXACT text (copy-paste), not paraphrased
-4. Keep quotes SHORT (under 100 characters when possible)
-5. Use the exact page numbers shown in the excerpts above
-6. For multi-page chunks: [Pages X-Y: "exact quote"]
-7. Place citations at the end of the sentence containing the claim
-8. If you cannot find relevant information, say so - do not invent
+INTELLIGENT CITATION STRATEGY:
+Before citing, analyze the TYPE of information you're providing:
 
-STYLE:
+A) STRUCTURED LISTS (eligibility criteria, exclusion criteria, endpoints, procedures):
+   - If presenting a complete list (e.g., all inclusion criteria), cite the SECTION ONCE at the beginning
+   - Format: "According to Section X.X (Page Y), the inclusion criteria include:"
+   - Then list items WITHOUT individual citations
+   - Example: "Section 5.1 Inclusion Criteria (Page 34) specifies: 1) Age 18-70 years, 2) Active UC confirmed by colonoscopy..."
+
+B) SPECIFIC FACTS or ISOLATED CLAIMS:
+   - Cite each claim individually
+   - Format: [Page X: "exact quote"]
+   - Use when answering questions about specific details, dates, dosages, or single facts
+   - Example: "The study duration is 52 weeks [Page 15: 'study duration of 52 weeks']"
+
+C) MIXED CONTENT (narrative with specific data points):
+   - Cite the overall section reference first
+   - Add specific citations only for critical numbers, dates, or controversial claims
+   - Example: "The study design (Section 3, Pages 10-12) uses a randomized approach. The primary endpoint is clinical remission at week 12 [Page 11: 'primary endpoint: clinical remission at week 12']"
+
+CITATION FORMATTING RULES:
+1. Section citations: "Section X.X Title (Page Y)" or "(Pages Y-Z)"
+2. Individual citations: [Page X: "exact quote under 80 chars"]
+3. For lists >5 items: Cite the section, not each item
+4. Exact quotes only - no paraphrasing in citations
+5. If unsure, default to section citation
+
+RESPONSE STYLE:
 - Be comprehensive and clear
 - Do NOT repeat the question back
-- Answer directly and professionally
+- Choose the citation strategy that provides the MOST USEFUL reference for verification
+- Prioritize readability while maintaining citation accuracy
 
 Provide your answer now:"""
         
