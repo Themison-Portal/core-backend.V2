@@ -19,12 +19,26 @@ load_dotenv()
 app_state = {}
 
 app = FastAPI()
+
+# CORS configuration for production
+# Note: For production, specify exact origins instead of ['*'] for better security
+allowed_origins = [
+    "https://themison-mvp-v1.vercel.app",
+    "http://localhost:8080",
+    "http://localhost:5173",
+]
+
+# Allow all origins from environment variable if set
+if os.getenv("ALLOW_ALL_ORIGINS", "false").lower() == "true":
+    allowed_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*'],
-    allow_methods=["GET", "POST"],
+    allow_origins=allowed_origins,
+    allow_credentials=True if allowed_origins != ["*"] else False,
+    allow_methods=["*"],  # Allow all methods including OPTIONS for preflight
     allow_headers=["*"],
-    allow_credentials=True,
+    expose_headers=["*"],
 )
 
 app.include_router(
