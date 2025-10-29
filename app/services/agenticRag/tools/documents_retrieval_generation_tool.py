@@ -29,9 +29,11 @@ def _ensure_serializable(data):
 def generate_response(
     query: str,
     retrieved_documents: List[Dict[Any, Any]]
-) -> str:
+) -> tuple[str, List[Dict]]:
     """
     Generate a response to the query based on the retrieved documents.
+    Returns: (answer_text, list_of_citations)
+    where each citation is: {"chunk_index": int, "exact_quote": str, "page": int}
     """
     try:
         context = ""
@@ -64,83 +66,126 @@ def generate_response(
                 page_display = "Page Unknown"
 
             content = doc.get('content', 'No content available')
-            context += f"\nDocument {i+1} ({page_display}, Source: {source}):\n{content}\n"
-        
-        prompt = f"""You are an expert medical document analyst. Answer the user's question using ONLY information from the provided document excerpts.
+            context += f"\n[CHUNK {i}] ({page_display}, Source: {source}):\n{content}\n"
 
-DOCUMENT EXCERPTS:
+        prompt = f"""You are an expert medical document analyst. Answer the user's question using ONLY information from the provided document chunks.
+
+DOCUMENT CHUNKS:
 {context}
 
 USER QUESTION: {query}
 
-INTELLIGENT CITATION STRATEGY:
-Before citing, analyze the TYPE of information you're providing:
+INSTRUCTIONS:
+1. Analyze all chunks and provide a detailed, well-structured answer
+2. Use ONLY information from the chunks above
+3. When listing items (criteria, requirements, tests), use markdown numbered lists (1. 2. 3.) or bullet points (-)
+4. Use markdown headers (## Title) to organize sections when appropriate
+5. For each piece of information you use, extract the EXACT relevant text snippet (verbatim quote)
+6. Include the page number for each citation
+7. Keep your answer under 2000 characters for optimal readability
 
-A) STRUCTURED LISTS (eligibility criteria, exclusion criteria, endpoints, procedures):
-   - If presenting a complete list (e.g., all inclusion criteria), cite the SECTION ONCE at the beginning
-   - Format: "According to Section X.X (Page Y), the inclusion criteria include:"
-   - Then list items WITHOUT individual citations
-   - Example: "Section 5.1 Inclusion Criteria (Page 34) specifies: 1) Age 18-70 years, 2) Active UC confirmed by colonoscopy..."
+FORMATTING GUIDELINES:
+- Use markdown lists for enumerated items
+- Use bold (**text**) for emphasis on key terms
+- Group related information under headers (## Header)
+- Keep each list item concise but complete
 
-B) SPECIFIC FACTS or ISOLATED CLAIMS:
-   - Cite each claim individually
-   - Format: [Page X: "exact quote"]
-   - Use when answering questions about specific details, dates, dosages, or single facts
-   - Example: "The study duration is 52 weeks [Page 15: 'study duration of 52 weeks']"
+Example format:
+## Inclusion Criteria
+1. Written informed consent obtained prior to study procedures
+2. Age ≥ 18 years at signing of informed consent
+3. Histologically confirmed diagnosis
 
-C) MIXED CONTENT (narrative with specific data points):
-   - Cite the overall section reference first
-   - Add specific citations only for critical numbers, dates, or controversial claims
-   - Example: "The study design (Section 3, Pages 10-12) uses a randomized approach. The primary endpoint is clinical remission at week 12 [Page 11: 'primary endpoint: clinical remission at week 12']"
+## Exclusion Criteria
+1. Prior therapy with anti-PD-1 agents
+2. Active autoimmune disease
 
-CITATION FORMATTING RULES:
-1. Section citations: "Section X.X Title (Page Y)" or "(Pages Y-Z)"
-2. Individual citations: [Page X: "exact quote under 80 chars"]
-3. For lists >5 items: Cite the section, not each item
-4. Exact quotes only - no paraphrasing in citations
-5. If unsure, default to section citation
+CRITICAL: Respond with VALID JSON ONLY in this exact format:
+{{
+  "answer": "Your detailed, markdown-formatted answer here (max 2000 chars)",
+  "citations": [
+    {{
+      "chunk_index": 0,
+      "exact_quote": "The exact verbatim text from the chunk",
+      "page": 35
+    }}
+  ],
+  "confidence": 0.95
+}}
 
-RESPONSE STYLE:
-- Be comprehensive and clear
-- Do NOT repeat the question back
-- Choose the citation strategy that provides the MOST USEFUL reference for verification
-- Prioritize readability while maintaining citation accuracy
+Where:
+- "answer": Your markdown-formatted response (string, MAXIMUM 2000 characters)
+- "citations": Array of objects with chunk_index, exact_quote (VERBATIM text), and page number
+- "confidence": Your confidence level 0.0-1.0 (number)
 
-Provide your answer now:"""
-        
+IMPORTANT:
+- The "exact_quote" MUST be verbatim text from the chunk (for PDF highlighting)
+- Keep answer UNDER 2000 characters or it will be truncated
+- Use markdown formatting for lists and structure
+- Be detailed and well-organized
+
+Return ONLY valid JSON, no additional text before or after."""
+
         print("🔍 ANTHROPIC REQUEST:")
         print(f"📝 Query: {query}")
-        print(f"📄 Context length: {len(context)} characters")
+        print(f"📄 Context: {len(retrieved_documents)} chunks, {len(context)} characters")
         print("🚀 Sending to Anthropic Claude...")
 
         response = llm.invoke(prompt)
-        content = response.content
+        content = response.content.strip()
 
         print("✅ ANTHROPIC RESPONSE RECEIVED:")
         print(f"📝 Response length: {len(content)} characters")
-        print(f"🔗 Raw response preview: {content[:200]}...")
+        print(f"🔗 Raw response preview: {content[:300]}...")
 
-        # Extract and log citations
+        # Parse JSON response
+        import json
         import re
-        citation_pattern = r'\[Page (\d+): [\'"]([^\'"]+)[\'"]\]'
-        citations_found = re.findall(citation_pattern, content)
 
-        print(f"🎯 CITATIONS EXTRACTED: {len(citations_found)} citations found")
-        for i, (page, quote) in enumerate(citations_found, 1):
-            print(f"  📖 Citation {i}: Page {page} - \"{quote[:50]}{'...' if len(quote) > 50 else ''}\"")
+        # Try to extract JSON if wrapped in markdown or extra text
+        json_match = re.search(r'\{[\s\S]*\}', content)
+        if json_match:
+            json_str = json_match.group(0)
+            parsed = json.loads(json_str)
+        else:
+            # Fallback: try to parse entire content
+            parsed = json.loads(content)
 
-        if not citations_found:
-            print("⚠️  NO CITATIONS FOUND - Checking for general quotes...")
-            general_quotes = re.findall(r'[\'"]([^\'"]{20,})[\'"]', content)
-            if general_quotes:
-                print(f"📝 Found {len(general_quotes[:3])} general quotes without page numbers:")
-                for i, quote in enumerate(general_quotes[:3], 1):
-                    print(f"  💬 Quote {i}: \"{quote[:50]}{'...' if len(quote) > 50 else ''}\"")
+        answer_text = parsed.get('answer', '')
+        citations = parsed.get('citations', [])
+        confidence = parsed.get('confidence', 0.8)
 
-        return content
-        
+        print(f"✅ JSON PARSED SUCCESSFULLY:")
+        print(f"  📝 Answer length: {len(answer_text)} chars")
+        print(f"  📊 Citations: {len(citations)}")
+        print(f"  🎯 Confidence: {confidence}")
+
+        for i, citation in enumerate(citations[:3]):
+            chunk_idx = citation.get('chunk_index', '?')
+            page = citation.get('page', '?')
+            quote_preview = citation.get('exact_quote', '')[:100]
+            print(f"    Citation {i+1}: Chunk {chunk_idx}, Page {page} - \"{quote_preview}...\"")
+
+        return answer_text, citations
+
+
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON PARSE ERROR: {str(e)}")
+        print(f"Raw content: {content[:500]}")
+        # Fallback: return content as-is and generate generic citations
+        fallback_citations = [
+            {
+                "chunk_index": i,
+                "exact_quote": doc.get('content', '')[:300],
+                "page": doc.get('chunk_metadata', {}).get('page_numbers', [1])[0]
+            }
+            for i, doc in enumerate(retrieved_documents[:3])
+        ]
+        return content, fallback_citations
     except Exception as e:
-        return f"Sorry, I encountered an error generating a response: {str(e)}"
+        error_msg = f"Sorry, I encountered an error generating a response: {str(e)}"
+        print(f"❌ GENERATION ERROR: {error_msg}")
+        return error_msg, []
 
 @tool(response_format="content_and_artifact")
 def documents_retrieval_generation_tool(
@@ -163,17 +208,22 @@ def documents_retrieval_generation_tool(
     """
     
     try:
+        import time
+        start_time = time.time()
+
         print("🔍 RAG TOOL STARTED:")
         print(f"📝 Original query: {query}")
         print(f"🎯 Document filter: {document_ids}")
         print(f"📊 Max results: {match_count}")
 
         # Step 1: Document Retrieval
+        t1 = time.time()
         processed_query = preprocess_query(query)
         print(f"🔧 Processed query: {processed_query}")
 
         embedding = embedding_client.embed_query(processed_query)
         print(f"🎯 Generated embedding vector length: {len(embedding)}")
+        print(f"⏱️  Embedding generation took: {time.time() - t1:.2f}s")
 
         rpc_params = {
             "query_text": processed_query,
@@ -181,9 +231,11 @@ def documents_retrieval_generation_tool(
             "match_count": match_count,
             "document_ids": document_ids,
         }
-        
+
+        t2 = time.time()
         print("🔍 Searching Supabase vector database...")
         result = supabase_client().rpc("hybrid_search", rpc_params).execute()
+        print(f"⏱️  Hybrid search took: {time.time() - t2:.2f}s")
 
         data = result.data if hasattr(result, "data") else []
 
@@ -230,28 +282,57 @@ def documents_retrieval_generation_tool(
 
         # Step 2: Response Generation
         if not retrieved_docs or (len(retrieved_docs) == 1 and "error" in retrieved_docs[0]):
+            print(f"⏱️  TOTAL RAG TOOL TIME: {time.time() - start_time:.2f}s")
             return {
                 "retrieved_documents": [],
                 "generated_response": "I couldn't find any relevant documents to answer your question. Please try rephrasing your query or check if the documents are available.",
+                "used_chunks": [],
+                "confidence": 0.0,
                 "success": False
             }
-        
-        generation = generate_response(query, retrieved_docs)
-        retrieved_docs_metadata = [doc.get('chunk_metadata', {}) for doc in retrieved_docs]
-        retrieved_docs_content = [doc.get('content', '') for doc in retrieved_docs]
+
+        # Generate response with JSON output (returns citations with exact quotes)
+        t3 = time.time()
+        answer_text, citations = generate_response(query, retrieved_docs)
+        print(f"⏱️  LLM generation took: {time.time() - t3:.2f}s")
+
+        # Get metadata for citations with exact quotes
+        used_chunks_with_metadata = []
+        for citation in citations:
+            chunk_idx = citation.get('chunk_index')
+            exact_quote = citation.get('exact_quote', '')
+            page = citation.get('page')
+
+            if chunk_idx is not None and 0 <= chunk_idx < len(retrieved_docs):
+                chunk = retrieved_docs[chunk_idx]
+                chunk_metadata = chunk.get('chunk_metadata', {})
+
+                used_chunks_with_metadata.append({
+                    "chunk_index": chunk_idx,
+                    "content": chunk.get('content', ''),  # Full chunk content
+                    "exact_quote": exact_quote,  # Exact text snippet LLM used
+                    "page_numbers": chunk_metadata.get('page_numbers', [page] if page else []),
+                    "filename": chunk_metadata.get('filename', 'Unknown'),
+                    "metadata": chunk_metadata
+                })
 
         print(f"🎯 FINAL TOOL RESPONSE:")
-        print(f"📝 Generation (length: {len(generation)}): {generation[:100]}...")
-        print(f"📚 Docs metadata: {len(retrieved_docs_metadata)} items")
+        print(f"📝 Answer (length: {len(answer_text)}): {answer_text[:100]}...")
+        print(f"📊 Citations: {len(citations)}")
+        print(f"📚 Sources to return: {len(used_chunks_with_metadata)} chunks with exact quotes")
+        print(f"⏱️  TOTAL RAG TOOL TIME: {time.time() - start_time:.2f}s")
 
-        return generation, {
-            "retrieved_documents": retrieved_docs_content,
-            "generated_response": generation,
+        # Return answer as content, structured data as artifact
+        return answer_text, {
+            "retrieved_documents": retrieved_docs,  # All retrieved docs
+            "used_chunks": used_chunks_with_metadata,  # Only chunks LLM used
+            "generated_response": answer_text,
             "success": True
         }
 
     except Exception as e:
         error_msg = f"An error occurred while processing your request: {str(e)}"
+        print(f"⏱️  TOTAL RAG TOOL TIME (with error): {time.time() - start_time:.2f}s")
         return error_msg, {
             "retrieved_documents": [],
             "generated_response": f"An error occurred while processing your request: {str(e)}",

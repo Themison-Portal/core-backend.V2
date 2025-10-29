@@ -13,7 +13,7 @@ settings = get_settings()
 llm = ChatAnthropic(
     api_key=settings.anthropic_api_key,
     model="claude-sonnet-4-20250514",  # Upgraded from Haiku to Sonnet 4
-    temperature=0.1,  # Lower temp for consistent citation format
+    temperature=0,  # Deterministic for maximum consistency
 )
 
 # Keep OpenAI for embeddings (faster and more efficient)

@@ -45,10 +45,11 @@ class RagAgent:
             - generic_tool: Use this for general queries
 
             IMPORTANT:
-            1. Always use the documents_retrieval_generation_tool for document-related questions
-            2. When a tool returns a response, use that response as your final answer
-            3. Do not modify or add to the tool's response - return it exactly as provided
-            4. If no tools are needed, answer directly"""
+            1. Call documents_retrieval_generation_tool ONCE with the user's original query
+            2. The tool will return a complete answer with citations - use that as your final response
+            3. Do NOT call the tool multiple times to refine or get more details
+            4. Do NOT break down the query into sub-queries - pass the full query to the tool
+            5. Return the tool's response exactly as provided"""
         )
         self.chat_history = InMemoryChatMessageHistory()
         self.document_ids = []
@@ -56,11 +57,23 @@ class RagAgent:
     def should_continue(self, state: MessagesState) -> Literal["end", "continue"]:
         """
         Determine whether to continue or not.
-        If there is no tool call, then we finish
-        Otherwise if there is, we continue
+        Limits to maximum 3 tool calls to prevent excessive iterations.
         """
         messages = state["messages"]
         last_message = messages[-1]
+
+        # Count how many tool calls have been made
+        tool_call_count = sum(
+            1 for msg in messages
+            if isinstance(msg, AIMessage) and msg.tool_calls
+        )
+
+        # If we've already made 3 tool calls, stop (hard limit)
+        if tool_call_count >= 2:
+            print(f"⚠️ Reached maximum tool calls limit (2). Stopping.")
+            return END
+
+        # Otherwise, check if there's a tool call pending
         if isinstance(last_message, AIMessage) and last_message.tool_calls:
             return "tools"
         return END
@@ -95,11 +108,10 @@ class RagAgent:
         # from langgraph to determine whether or not to use tools
         graph.add_conditional_edges("agent", self.should_continue, ["tools", END])
 
-        
+        # AGENTIC LOOP: Allow agent to refine response after tool execution
         graph.add_edge("tools", "agent")
-        graph.add_edge("agent", END)
         checkpointer = MemorySaver()
-        
+
         return graph.compile(checkpointer=checkpointer)
         
 
