@@ -31,7 +31,7 @@ class RagAgent:
     but for now it is a good way to test the agent
     """
     
-    def __init__(self):
+    def __init__(self, max_tool_calls: int = 2):
         self.tools = [
             generic_tool,
             documents_retrieval_generation_tool
@@ -53,6 +53,7 @@ class RagAgent:
         )
         self.chat_history = InMemoryChatMessageHistory()
         self.document_ids = []
+        self.max_tool_calls = max_tool_calls
         
     def should_continue(self, state: MessagesState) -> Literal["end", "continue"]:
         """
@@ -67,16 +68,34 @@ class RagAgent:
             1 for msg in messages
             if isinstance(msg, AIMessage) and msg.tool_calls
         )
+        print("should_continue() called")
+        print(f"Total tool calls made so far: {tool_call_count}")
+        print(f"Last message type: {last_message.__class__.__name__}")
+   
 
-        # If we've already made 3 tool calls, stop (hard limit)
-        if tool_call_count >= 2:
-            print(f"⚠️ Reached maximum tool calls limit (2). Stopping.")
-            return END
-
-        # Otherwise, check if there's a tool call pending
+        # If first iteration tool returned high-confidence, stop
         if isinstance(last_message, AIMessage) and last_message.tool_calls:
-            return "tools"
-        return END
+            print(f"tool_calls = {last_message.tool_calls}")
+            if getattr(last_message.tool_calls[0], "high_confidence", False):
+                print("High confidence tool call response received. Stopping.")
+                return END
+           
+        # Otherwise, allow max_tool_calls iterations
+        if tool_call_count >= self.max_tool_calls:
+            print(f"Reached maximum tool calls limit ({self.max_tool_calls}). Stopping.")
+            return END
+        print(f"Tool calls so far: {tool_call_count}. Continuing.")
+        return "tools"
+    
+    #  # If we've already made 3 tool calls, stop (hard limit)
+    #     if tool_call_count >= 2:
+    #         print(f"⚠️ Reached maximum tool calls limit (2). Stopping.")
+    #         return END
+
+    #     # Otherwise, check if there's a tool call pending
+    #     if isinstance(last_message, AIMessage) and last_message.tool_calls:
+    #         return "tools"
+    #     return END
     
     def create_graph(self, document_ids: List[str] = None):
         """
