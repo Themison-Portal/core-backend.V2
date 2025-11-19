@@ -83,6 +83,9 @@ INSTRUCTIONS:
 5. For each piece of information you use, extract the EXACT relevant text snippet (verbatim quote)
 6. Include the page number for each citation
 7. Keep your answer under 2000 characters for optimal readability
+8. If a fact cannot be directly supported by a quote, respond: "Not enough information."
+9. Do NOT infer or guess beyond the document text.
+10. Prefer shorter, factual answers strictly grounded in the retrieved chunks.
 
 FORMATTING GUIDELINES:
 - Use markdown lists for enumerated items
@@ -338,3 +341,7 @@ def documents_retrieval_generation_tool(
             "generated_response": f"An error occurred while processing your request: {str(e)}",
             "success": False
         }
+
+
+
+        

@@ -273,7 +273,9 @@ def _chunk_section(
 def _contains_numbered_list(content: str) -> bool:
     """Check if content contains numbered list (1. 2. 3. or 1) 2) 3))"""
     # Pattern: start of line, optional whitespace, number, dot or paren, space
-    pattern = r'^\s*\d+[\.\)]\s+'
+    
+    pattern = r'^\s*((\d+[\.\)])|([a-zA-Z][\.\)])|(i{1,3}|iv|v|vi{1,3})[\.\)])\s+'
+
     return bool(re.search(pattern, content, re.MULTILINE))
 
 
@@ -449,12 +451,16 @@ def _chunk_regular_text(
         # section_start_char + len(header line) + relative position in content
         absolute_start_index = section_start_char + header_offset + relative_start_index
 
+        
+
         chunk_with_header = Document(
+
             page_content=f"{header}\n\n{chunk.page_content}",
             metadata={
                 **metadata,
                 'chunk_type': 'regular_text',
                 'start_index': absolute_start_index  # Store absolute position
+                
             }
         )
         result_chunks.append(chunk_with_header)

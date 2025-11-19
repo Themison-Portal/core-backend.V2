@@ -11,6 +11,7 @@ import requests
 from langchain_core.documents import Document
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 
 from app.contracts.document import DocumentResponse
 from app.core.openai import embedding_client
@@ -56,7 +57,8 @@ class DocumentService(IDocumentService):
             text_content = ""
             
             for page in pdf_reader.pages:
-                text_content += page.extract_text() + "\n"
+                page_text = page.extract_text() or ""
+                text_content += page_text + "\n"
             
             if not text_content.strip():
                 raise ValueError("No text content found in PDF")
@@ -87,22 +89,34 @@ class DocumentService(IDocumentService):
             document = await self.db.get(DocumentTable, document_id)
             if not document:
                 raise ValueError(f"Document {document_id} not found. Frontend should create it first.")
-                        
+                    
             # Document already exists, no need to update non-existent columns
             # Just proceed to add chunks
                                     
             # Add chunks that reference the existing document
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                # Ensure metadata exists and enrich it with page_start/page_end if possible
+                chunk_meta = dict(chunk.metadata or {})
+                # Preserve chunk_index
+                chunk_meta["chunk_index"] = i
 
+                # Add page_start/page_end derived fields if present in metadata
+                page_numbers = chunk_meta.get("page_numbers", [])
+                if page_numbers:
+                    chunk_meta["page_start"] = page_numbers[0]
+                    chunk_meta["page_end"] = page_numbers[-1]
+
+                # Build DB record
                 chunk_record = DocumentChunk(
                     id=uuid4(),
                     document_id=document.id,  # Reference existing document
                     content=chunk.page_content,
                     chunk_index=i,
-                    chunk_metadata={**chunk.metadata, "chunk_index": i},
+                    chunk_metadata=chunk_meta,
                     embedding=embedding,
                     created_at=datetime.now()
                 )
+
                 self.db.add(chunk_record)  # Add NEW chunk
             
             await self.db.commit()
@@ -138,15 +152,25 @@ class DocumentService(IDocumentService):
             # Extract text using PyPDF2
             pdf_reader = PyPDF2.PdfReader(pdf_file)
             pages_data = []
-            char_offset = 0
+            global_offset = 0  # precise char offset across pages
             toc_start = None
             toc_end = None
 
             # Phase 1: Extract page-by-page with precise character tracking
             for page_num, page in enumerate(pdf_reader.pages, 1):
-                page_text = page.extract_text()
+                page_text = page.extract_text() or ""
 
+                # Skip pages with no meaningful text
                 if not page_text.strip():
+                    # still advance offset by 1 to keep consistent offsets if needed
+                    pages_data.append({
+                        "page_number": page_num,
+                        "text": "",
+                        "start_char": global_offset,
+                        "end_char": global_offset
+                    })
+                    # no char length added for empty page text, but keep a delimiter
+                    global_offset += 1
                     continue
 
                 # Detect TOC pages
@@ -155,14 +179,18 @@ class DocumentService(IDocumentService):
                     toc_start = page_num
                     print(f"📋 TOC detected starting at page {page_num}")
 
+                start_char = global_offset
+                end_char = start_char + len(page_text)
+
                 pages_data.append({
                     "page_number": page_num,
                     "text": page_text,
-                    "start_char": char_offset,
-                    "end_char": char_offset + len(page_text)
+                    "start_char": start_char,
+                    "end_char": end_char
                 })
 
-                char_offset += len(page_text) + 1  # +1 for newline between pages
+                # Advance global offset; +1 for the newline separator we use when joining pages
+                global_offset = end_char + 1
 
             if not pages_data:
                 raise ValueError("No text content found in PDF")
@@ -175,6 +203,8 @@ class DocumentService(IDocumentService):
                         continue
 
                     page_text = page_data["text"]
+                    if not page_text:
+                        continue
 
                     # Heuristic: TOC ends when we find a page with:
                     # - Paragraphs (multiple sentences, not just "Title .... XX")
@@ -245,15 +275,19 @@ class DocumentService(IDocumentService):
         enhanced_chunks = []
 
         for chunk_idx, chunk in enumerate(chunks):
-            # Use start_index from semantic chunker directly
-            start_index = chunk.metadata.get("start_index", 0)
+            # Require start_index from semantic chunker to be present
+            start_index = chunk.metadata.get("start_index")
+            if start_index is None:
+                raise ValueError(f"Semantic chunk missing start_index for chunk {chunk_idx} — indexing can't proceed")
+
             end_index = start_index + len(chunk.page_content)
 
-            # Find all pages that intersect with this chunk's character range
-            chunk_pages = []
-            for boundary in page_boundaries:
-                if start_index < boundary["end_char"] and end_index > boundary["start_char"]:
-                    chunk_pages.append(boundary["page_number"])
+            # Fast page-matching: include boundary if ranges overlap
+            chunk_pages = [
+                b["page_number"]
+                for b in page_boundaries
+                if not (end_index < b["start_char"] or start_index > b["end_char"])
+            ]
 
             # Fallback to first page if no intersection found
             if not chunk_pages:
@@ -271,13 +305,16 @@ class DocumentService(IDocumentService):
             toc_marker = "📋 TOC" if is_toc else ""
             print(f"📄 Chunk {chunk_idx}: pages {chunk_pages} (char {start_index}-{end_index}) {toc_marker}")
 
-            enhanced_metadata = chunk.metadata.copy()
+            enhanced_metadata = dict(chunk.metadata or {})
+            # ensure we preserve any existing metadata and then add enriched fields
             enhanced_metadata.update({
                 "page_numbers": chunk_pages,
+                "page_start": chunk_pages[0],
+                "page_end": chunk_pages[-1],
                 "total_pages_spanned": len(chunk_pages),
-                "is_toc": is_toc,
                 "start_index": start_index,
-                "end_index": end_index
+                "end_index": end_index,
+                "is_toc": is_toc,
             })
 
             enhanced_chunk = Document(
@@ -320,7 +357,7 @@ class DocumentService(IDocumentService):
             chunks = chunk_text_semantic(
                 content,
                 metadata,
-                chunk_size=1500,  # Larger to fit complete sections
+                chunk_size=800,  # Larger to fit complete sections
                 chunk_overlap=200
             )
 
@@ -364,11 +401,62 @@ class DocumentService(IDocumentService):
     
     async def ensure_tables_exist(self):
         """
-        Create tables if they don't exist.
+        Create tables if they don't exist and add indexes for faster retrieval.
         """
         try:
             async with engine.begin() as conn:
-                # Drop and recreate document_chunks table to fix the Vector dimension
+                # Create tables
                 await conn.run_sync(Base.metadata.create_all)
+
+                # Index for quick lookup by document_id
+                try:
+                    await conn.execute(text("""
+                        CREATE INDEX IF NOT EXISTS idx_chunks_document_id
+                        ON document_chunks (document_id);
+                    """))
+                except Exception as e:
+                    print(f"⚠️ Failed to create document_id index: {e}")
+
+                # Index for filtering by page_start (stored in chunk_metadata JSON)
+                # cast to integer for numeric ordering when appropriate
+                try:
+                    await conn.execute(text("""
+                        CREATE INDEX IF NOT EXISTS idx_chunks_page_start
+                        ON document_chunks ( ( (chunk_metadata ->> 'page_start')::int ) );
+                    """))
+                except Exception as e:
+                    # If casting fails on some DBs/rows, fall back to text index
+                    print(f"⚠️ Failed to create page_start int index (trying text): {e}")
+                    try:
+                        await conn.execute(text("""
+                            CREATE INDEX IF NOT EXISTS idx_chunks_page_start_text
+                            ON document_chunks ( (chunk_metadata ->> 'page_start') );
+                        """))
+                    except Exception as e2:
+                        print(f"⚠️ Failed to create page_start text index: {e2}")
+
+                # Attempt to create a vector index for embeddings using pgvector (guarded)
+                # If pgvector or the HNSW operator isn't available this will fail silently
+                try:
+                    await conn.execute(text("""
+                        -- Try to create a vector index (HNSW) for embeddings. This requires pgvector >= 0.4
+                        -- and Postgres compiled with the necessary operator classes.
+                        CREATE INDEX IF NOT EXISTS idx_chunks_embedding_hnsw
+                        ON document_chunks
+                        USING hnsw (embedding vector_cosine_ops)
+                        WITH (m = 16, ef_construction = 64);
+                    """))
+                except Exception as e:
+                    # If HNSW is not supported, try ivfflat as fallback (requires pgvector)
+                    print(f"⚠️ HNSW index creation failed: {e}. Trying ivfflat fallback...")
+                    try:
+                        await conn.execute(text("""
+                            CREATE INDEX IF NOT EXISTS idx_chunks_embedding_ivfflat
+                            ON document_chunks
+                            USING ivfflat (embedding vector_l2_ops)
+                            WITH (lists = 100);
+                        """))
+                    except Exception as e2:
+                        print(f"⚠️ ivfflat index creation also failed: {e2}. You may need to create vector index manually depending on pgvector version.")
         except Exception as e:
-            raise RuntimeError(f"Failed to create tables: {str(e)}")
+            raise RuntimeError(f"Failed to create tables or indexes: {str(e)}")
