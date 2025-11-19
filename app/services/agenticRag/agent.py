@@ -55,47 +55,20 @@ class RagAgent:
         self.document_ids = []
         self.max_tool_calls = max_tool_calls
         
-    def should_continue(self, state: MessagesState) -> Literal["end", "continue"]:
-        """
-        Determine whether to continue or not.
-        Limits to maximum 3 tool calls to prevent excessive iterations.
-        """
+    def should_continue(self, state: MessagesState):
         messages = state["messages"]
-        last_message = messages[-1]
+        last = messages[-1]
 
-        # Count how many tool calls have been made
-        tool_call_count = sum(
-            1 for msg in messages
-            if isinstance(msg, AIMessage) and msg.tool_calls
-        )
-        print("should_continue() called")
-        print(f"Total tool calls made so far: {tool_call_count}")
-        print(f"Last message type: {last_message.__class__.__name__}")
-   
+        # Case 1: LLM wants to call a tool → allow exactly one step
+        if isinstance(last, AIMessage) and last.tool_calls:
+            return "tools"
 
-        # If first iteration tool returned high-confidence, stop
-        if isinstance(last_message, AIMessage) and last_message.tool_calls:
-            print(f"tool_calls = {last_message.tool_calls}")
-            if getattr(last_message.tool_calls[0], "high_confidence", False):
-                print("High confidence tool call response received. Stopping.")
-                return END
-           
-        # Otherwise, allow max_tool_calls iterations
-        if tool_call_count >= self.max_tool_calls:
-            print(f"Reached maximum tool calls limit ({self.max_tool_calls}). Stopping.")
+        # Case 2: Tool result arrived → STOP (prevents recursion)
+        if last.type == "tool":
             return END
-        print(f"Tool calls so far: {tool_call_count}. Continuing.")
-        return "tools"
-    
-    #  # If we've already made 3 tool calls, stop (hard limit)
-    #     if tool_call_count >= 2:
-    #         print(f"⚠️ Reached maximum tool calls limit (2). Stopping.")
-    #         return END
 
-    #     # Otherwise, check if there's a tool call pending
-    #     if isinstance(last_message, AIMessage) and last_message.tool_calls:
-    #         return "tools"
-    #     return END
+        # Default: nothing special → end
+        return END
     
     def create_graph(self, document_ids: List[str] = None):
         """
