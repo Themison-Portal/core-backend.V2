@@ -9,6 +9,8 @@ from langchain_core.messages import AIMessage, SystemMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
+from anthropic._exceptions import OverloadedError
+import time
 
 from app.core.openai import llm
 from app.services.agenticRag.tools import (
@@ -110,17 +112,41 @@ class RagAgent:
     def agent(self, state: MessagesState):
         """
         The agent node that processes messages and returns state updates.
+        Includes automatic retries on LLM overload (529 error).
         """
-        result = self.llm_with_tools.invoke([self.system_message] + state["messages"])
-        # print(result)        
-        tool_calls = result.tool_calls
-        
-        response = {
-            "messages": [result],
-            "tool_calls": tool_calls,
-        }
-        
-        return response
+
+        max_retries = 5
+        delay = 1  # seconds
+
+        for attempt in range(max_retries):
+            try:
+                # Attempt LLM call
+                result = self.llm_with_tools.invoke(
+                    [self.system_message] + state["messages"]
+                )
+
+                tool_calls = result.tool_calls
+
+                return {
+                    "messages": [result],
+                    "tool_calls": tool_calls,
+                }
+
+            except OverloadedError as e:
+                # If last retry, rethrow
+                if attempt == max_retries - 1:
+                    raise e
+                
+                print(
+                    f"⚠️ LLM overloaded (attempt {attempt+1}/{max_retries}). "
+                    f"Retrying in {delay} seconds..."
+                )
+                time.sleep(delay)
+                delay *= 2  # exponential backoff
+
+            except Exception as e:
+                # Any other error → rethrow
+                raise e
 
     def get_chat_history(self, session_id: str) -> InMemoryChatMessageHistory:
         """
