@@ -1,3 +1,5 @@
+# Debug: confirm main.py is loading
+print("MAIN.PY LOADED SUCCESSFULLY")
 """
 Main application file
 """
