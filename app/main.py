@@ -50,9 +50,9 @@ app.include_router(
 )
 
 # Public route for health check
-@app.get("/health")
+@app.get("/")
 def health():
-    return {"status": "ok"}
+    return {"status": "Service is running!"}
 
 # Protected routes
 app.include_router(
