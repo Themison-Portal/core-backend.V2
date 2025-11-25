@@ -49,6 +49,11 @@ app.include_router(
     tags=["auth"]
 )
 
+# Public route for health check
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
 # Protected routes
 app.include_router(
     upload_router,
