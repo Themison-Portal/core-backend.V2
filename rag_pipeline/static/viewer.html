@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF Viewer with Highlights</title>
+<style>
+body { font-family: sans-serif; margin: 0; padding: 0; background: #f4f4f9; }
+/* Responsive container for PDF */
+#viewerContainer { 
+    position: relative; 
+    max-width: 1000px;
+    width: 90%; 
+    margin: 20px auto; 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.pdf-page { 
+    width: 100%; 
+    height: 800px; /* Viewing height */
+    display: block;
+    border: none;
+}
+</style>
+</head>
+<body>
+<div id="viewerContainer">
+    <p style="padding: 20px; text-align: center;">Initializing PDF viewer...</p>
+</div>
+
+<script>
+async function loadHighlights() {
+    const params = new URLSearchParams(window.location.search);
+    const doc = params.get('doc');
+    const page = parseInt(params.get('page') || '1');
+    const highlightText = params.get('highlight') || '';
+    console.log(`Parameters - doc: ${doc}, page: ${page}, highlight: "${highlightText}"`);
+    if (!doc) {
+        document.getElementById('viewerContainer').innerHTML = 
+            '<p style="padding: 20px; text-align: center; color: red;">Error: Document name is missing.</p>';
+        return;
+    }
+
+    const container = document.getElementById('viewerContainer');
+    container.innerHTML = ''; // Clear initial message
+
+    // Construct URL to the new /highlighted_pdf route
+    let pdfSourceUrl = `/rag/highlighted_pdf?doc=${encodeURIComponent(doc)}&page=${page}`;
+    if (highlightText) {
+        pdfSourceUrl += `&highlight=${encodeURIComponent(highlightText)}`;
+    }
+    
+    const pdfObject = document.createElement('object');
+    pdfObject.data = pdfSourceUrl + `#page=${page}`; // Inline browser PDF viewer
+    pdfObject.type = "application/pdf";
+    pdfObject.className = "pdf-page";
+
+    // Fallback content
+    pdfObject.innerHTML = 
+        '<p style="padding: 20px; text-align: center;">Your browser does not support embedded PDF viewing. ' +
+        '<a href="' + pdfSourceUrl + '" target="_blank" style="color:#1d4ed8;">Click here to download the highlighted PDF.</a></p>';
+    
+    container.appendChild(pdfObject);
+
+    console.log(`Requested PDF: ${doc} | Page: ${page} | Highlight Text: "${highlightText}"`);
+    console.log(`Loading from URL: ${pdfObject.data}`);
+}
+
+window.addEventListener('load', loadHighlights);
+</script>
+</body>
+</html>
