@@ -83,6 +83,7 @@ if os.path.isdir(DATA_DIR):
 # Note: For production, specify exact origins instead of ['*'] for better security
 allowed_origins = [
     "https://themison-mvp-v1.vercel.app",
+    "https://core-frontendv2.vercel.app",
     "http://localhost:8080",
     "http://localhost:5173",
 ]
