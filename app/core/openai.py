@@ -12,7 +12,7 @@ settings = get_settings()
 # Use Anthropic Claude for LLM (better citations)
 llm = ChatAnthropic(
     api_key=settings.anthropic_api_key,
-    model="claude-sonnet-4-20250514",  # Upgraded from Haiku to Sonnet 4
+    model="claude-opus-4-5-20251101",  # Upgraded from Sonnet 4 to Opus 4.5
     temperature=0,  # Deterministic for maximum consistency
 )
 
