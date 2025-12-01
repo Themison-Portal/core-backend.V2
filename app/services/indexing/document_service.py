@@ -357,7 +357,7 @@ class DocumentService(IDocumentService):
             chunks = chunk_text_semantic(
                 content,
                 metadata,
-                chunk_size=800,  # Larger to fit complete sections
+                chunk_size=1200,  # Optimized for Claude Opus
                 chunk_overlap=200
             )
 
