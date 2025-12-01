@@ -3,9 +3,9 @@ from fastapi import APIRouter, Request, Form, HTTPException, Response
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.concurrency import run_in_threadpool
-
 from urllib.parse import quote, unquote_plus
 
+from rag_pipeline.schema.rag_res_schema import RagStructuredResponse
 from rag_pipeline.query_data_store import rag_query
 from rag_pipeline.helpers import (
     STATIC_DIR, DATA_DIR, safe_basename,
@@ -74,56 +74,17 @@ async def viewer(request: Request, doc: str, page: int = 1, highlight: str = "")
 @router.post("/query", response_class=JSONResponse)
 async def query_endpoint(query: str = Form(...)):
     """
-    Your RAG query endpoint rewritten to match the company's response style.
+    RAG query endpoint returning structured JSON with response and sources.
     """
-    output = await rag_query(query)
-    raw_answer = output.get("answer", "")
+    # Call your RAG function that uses structured model
+    result: RagStructuredResponse = await rag_query(query)
 
-    # -----------------------------
-    # SPLIT ANSWER + SOURCES
-    # -----------------------------
-    parts = re.split(r"SOURCES USED:", raw_answer, flags=re.IGNORECASE)
-    answer_text = parts[0].strip()
-    sources_block = parts[1].strip() if len(parts) > 1 else ""
-
-    # Normalize markdown exactly like company
-    answer_text = normalize_markdown(answer_text)
-
-    # -----------------------------
-    # PARSE CITED SOURCES
-    # Expected Format:   <title> (p. <page>, ¶optional)
-    # -----------------------------
-    sources = []
-    seen = set()
-
-    for match in re.finditer(r'(.+?)\s*\(p\.\s*(\d+)(?:,\s*¶(\d+))?\)', sources_block):
-        title = match.group(1).strip()
-        page = int(match.group(2))
-        paragraph = match.group(3) or ""
-
-        key = (title, page, paragraph)
-        if key in seen:
-            continue
-        seen.add(key)
-
-        sources.append({
-            "section": f"Page {page}",
-            "page": page,
-            "filename": title,
-            "exactText": f"{answer_text}",  
-            "chunk_index": 0,  # No chunk mapping yet
-            "relevance": "high",
-            "context": f"Referenced from {title}",
-            "highlightURL": f"{title}.pdf?page={page},highlight={answer_text}"  
-        })
-
-    # -----------------------------
-    # RETURN CLEAN JSON (NO HTML)
-    # -----------------------------
+    print("RAG Query Result:", result)
+    # The structured model already returned 'response' and 'sources'
     return {
-        "response": answer_text,   # string, markdown-safe
-        "sources": sources,
-        "tool_calls": [],          # included for frontend compatibility
+        "response": result['response'],  # markdown-safe answer
+        "sources": result['sources'],    # list of fully structured source dicts
+        "tool_calls": []              # keep for frontend compatibility
     }
 
 

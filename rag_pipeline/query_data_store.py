@@ -7,7 +7,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
 from sqlalchemy import text
-
+from rag_pipeline.schema.rag_res_schema import RagStructuredResponse
 from rag_pipeline.database import AsyncSessionLocal # Assumed to be configured
 
 
@@ -38,7 +38,36 @@ You MUST follow these rules when answering:
  Context: {context} 
  Question: {question} 
  
- Answer: """ 
+ Answer: Provide your response in the following structured JSON format exactly:
+
+{{
+  "response": "<Rewrite the content in well-structured Markdown with:
+    - Proper headings
+    - Numbered lists
+    - Bullet lists
+    - Paragraph spacing
+    - Italics/bold for emphasis
+    - Clear separation of sections
+    and with inline citations
+    >",
+  "sources": [
+    {{
+      "section": "<section title or page reference>",
+      "page": <page number>,
+      "filename": "<protocol/document title>",
+      "exactText": "<text snippet relevant to the answer>",
+      "chunk_index": <chunk index if known, else 0>,
+      "relevance": "<high/medium/low>",
+      "context": "<any additional context>",
+      "highlightURL": "<URL for highlighting in PDF>"
+    }}
+  ]
+  
+}}
+
+Do not add any extra text, explanation, or HTML. Only return the structured JSON.
+ 
+ """
 
 SUMMARY_TEMPLATE = """ 
 You are an expert clinical protocol summarization assistant. 
@@ -177,10 +206,15 @@ async def rag_query(query_text: str):
 
     embeddings, chat_model = get_rag_components()
 
+    structured_chat_model = ChatOpenAI(
+        model=LLM_MODEL_NAME,
+        temperature=0.0
+    ).with_structured_output(RagStructuredResponse)
+
     # classify (uses .ainvoke internally)
     category = await classify_query(chat_model, query_text)
     is_complex = category in ["emergency", "severe_side_effect"]
-    top_k = 40 if is_complex else 15
+    top_k = 40 if is_complex else 20
 
     # run similarity search
     results = await search_supabase_similar_chunks(query_text, embeddings, top_k)
@@ -204,33 +238,21 @@ async def rag_query(query_text: str):
     chain = (
         {"context": RunnablePassthrough(), "question": RunnablePassthrough()}
         | CHAT_PROMPT
-        | chat_model
-        | StrOutputParser()
+        | structured_chat_model        
     )
 
     # CORRECT: use chain.ainvoke()
-    response = await chain.ainvoke({"context": merged_context, "question": query_text})
-
-    # build sources list
-    sources = []
-    for doc in filtered_docs:
-        title = doc["metadata"]["title"]
-        page = doc["metadata"]["page_number"]
-        para = doc["metadata"]["paragraph_number"]
-        
-        # Using the citation format specified in the prompt template
-        citation = f"(p. {page})"
-        if para is not None:
-             citation = f"(p. {page}, ¶{para})"
-             
-        sources.append(f"{title} {citation}")
-
-    sources = list(dict.fromkeys(sources))
+    result: RagStructuredResponse = await chain.ainvoke({
+        "context": merged_context,
+        "question": query_text
+    })
 
     return {
-        "answer": response.strip(),
-        "sources": sources
+        "response": result.response,
+        "sources": result.sources
     }
+    # build sources list
+    
 
 
 # Example usage (for testing)

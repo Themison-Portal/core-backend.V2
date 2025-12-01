@@ -2,7 +2,7 @@
 # start.sh
 
 # Install dependencies
-pip install -r requirements.txt
+# pip install -r requirements.txt
 
 # Set port (Vercel will override this)
 PORT=${PORT:-8000}
