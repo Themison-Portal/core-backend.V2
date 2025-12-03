@@ -96,6 +96,12 @@ async def highlighted_pdf(request: Request, doc: str, page: int, highlight: str 
 
     r_client = get_redis_client(request)
 
+    # --- Clear previous highlighted PDFs for this document ---
+    doc_stem = safe_basename(doc).replace(".pdf", "")
+    keys_to_delete = r_client.scan_iter(f"highlighted:{doc_stem}:*")
+    for key in keys_to_delete:
+        r_client.delete(key)
+
     decoded = unquote_plus(highlight or "")
     highlight_texts = [h.strip() for h in decoded.split("|") if h.strip()]
 
