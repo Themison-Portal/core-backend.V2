@@ -183,3 +183,13 @@ async def highlighted_pdf(request: Request, doc: str, page: int, highlight: str 
     await run_in_threadpool(r_client.set, cache_key, pdf_bytes, ex=3600)
 
     return Response(content=pdf_bytes, media_type="application/pdf")
+
+@router.get("/clear_redis_cache")
+def clear_redis_cache(request: Request):
+    redis_client = get_redis_client(request)
+    keys = redis_client.scan_iter("highlighted:*")  # <-- your prefix
+    count = 0
+    for key in keys:
+        redis_client.delete(key)
+        count += 1
+    return {"deleted": count}
