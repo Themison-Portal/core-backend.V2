@@ -357,8 +357,9 @@ class DocumentService(IDocumentService):
             chunks = chunk_text_semantic(
                 content,
                 metadata,
-                chunk_size=1200,  # Optimized for Claude Opus
-                chunk_overlap=200
+                #chunk_size=1200,  # Optimized for Claude Opus
+                chunk_size=900,  # Optimized for Claude Opus for better context
+                chunk_overlap=120
             )
 
             # Step 3: Add page metadata to chunks with TOC marking
