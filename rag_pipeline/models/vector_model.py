@@ -11,7 +11,8 @@ from pgvector.sqlalchemy import Vector
 from database import Base 
 
 # Define the dimensions for your embedding model (e.g., 1536 for OpenAI)
-EMBEDDING_DIMENSION = 1536
+# EMBEDDING_DIMENSION = 1536
+EMBEDDING_DIMENSION = 768  # For BioBERT
 
 class ProtocolChunk(Base):
     __tablename__ = "protocol_chunks"

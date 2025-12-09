@@ -10,6 +10,8 @@ sentence-transformers
 transformers
 openai
 vecs
+torch
+langchain-community
 langchain[openai]
 langchain_community
 langchain_openai

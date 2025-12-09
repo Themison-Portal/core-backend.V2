@@ -2,6 +2,7 @@ import asyncio
 from functools import partial
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings 
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -12,7 +13,8 @@ from rag_pipeline.database import AsyncSessionLocal # Assumed to be configured
 
 
 LLM_MODEL_NAME = "gpt-4o-mini"
-EMBEDDING_MODEL_NAME = "text-embedding-3-small"
+# EMBEDDING_MODEL_NAME = "text-embedding-3-small"
+EMBEDDING_MODEL_NAME = "pritamdeka/S-BioBert-snli-multinli-stsb"
 
 
 # ============================================================
@@ -99,7 +101,8 @@ async def run_in_thread(fn, *args, **kwargs):
 def get_rag_components():
     """Initializes synchronous LangChain components."""
     # Note: These components will be wrapped in threads when using .ainvoke()
-    embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL_NAME)
+    # embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL_NAME)
+    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
     chat_model = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0.1)
     return embeddings, chat_model
 
