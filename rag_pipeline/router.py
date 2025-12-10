@@ -7,6 +7,7 @@ from urllib.parse import quote, unquote_plus
 
 from rag_pipeline.schema.rag_res_schema import RagStructuredResponse
 from rag_pipeline.query_data_store import rag_query
+from rag_pipeline.query_data_store_biobert import rag_query_biobert
 from rag_pipeline.helpers import (
     STATIC_DIR, DATA_DIR, safe_basename,
     normalize_text, chunk_text, get_blocks_from_redis
@@ -87,6 +88,25 @@ async def query_endpoint(query: str = Form(...)):
         "tool_calls": []              # keep for frontend compatibility
     }
 
+
+# ============================================================
+#        Main RAG-BioBERT Query Endpoint
+# ============================================================
+@router.post("/query-biobert", response_class=JSONResponse)
+async def query_endpoint(query: str = Form(...)):
+    """
+    RAG query endpoint returning structured JSON with response and sources.
+    """
+    # Call your RAG function that uses structured model
+    result: RagStructuredResponse = await rag_query_biobert(query)
+
+    print("BioBERT RAG Query Result:", result)
+    # The structured model already returned 'response' and 'sources'
+    return {
+        "response": result['response'],  # markdown-safe answer
+        "sources": result['sources'],    # list of fully structured source dicts
+        "tool_calls": []              # keep for frontend compatibility
+    }
 
 # ============================================================
 #        PDF HIGHLIGHT

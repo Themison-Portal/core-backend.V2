@@ -2,6 +2,7 @@ import asyncio
 from functools import partial
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings 
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -12,8 +13,8 @@ from rag_pipeline.database import AsyncSessionLocal # Assumed to be configured
 
 
 LLM_MODEL_NAME = "gpt-4o-mini"
-EMBEDDING_MODEL_NAME = "text-embedding-3-small"
-
+# EMBEDDING_MODEL_NAME = "text-embedding-3-small"
+EMBEDDING_MODEL_NAME = "pritamdeka/S-BioBert-snli-multinli-stsb"
 
 
 # ============================================================
@@ -100,7 +101,8 @@ async def run_in_thread(fn, *args, **kwargs):
 def get_rag_components():
     """Initializes synchronous LangChain components."""
     # Note: These components will be wrapped in threads when using .ainvoke()
-    embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL_NAME)    
+    # embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL_NAME)
+    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
     chat_model = ChatOpenAI(model=LLM_MODEL_NAME, temperature=0.1)
     return embeddings, chat_model
 
@@ -126,8 +128,8 @@ async def search_supabase_similar_chunks(query_text: str, embeddings, top_k: int
         sql = text("""
             SELECT pc.id, pc.content, pc.protocol_id, pc.page_number, pc.paragraph_number, p.title,
                 1 - (pc.embedding <=> (:v)::vector) AS similarity
-            FROM protocol_chunks pc
-            JOIN protocols p ON pc.protocol_id = p.id
+            FROM protocol_chunks_biobert pc
+            JOIN protocols_biobert p ON pc.protocol_id = p.id
             ORDER BY pc.embedding <=> (:v)::vector
             LIMIT :k
         """)
@@ -201,7 +203,7 @@ def format_context_with_citation(doc):
 # MAIN RAG EXECUTION
 # ============================================================
 
-async def rag_query(query_text: str):
+async def rag_query_biobert(query_text: str):
     if not query_text:
         raise ValueError("Query text must be provided.")
 

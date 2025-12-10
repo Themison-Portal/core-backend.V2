@@ -18,9 +18,10 @@ from models.vector_model import Protocol, ProtocolChunk
 # load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-DATA_PATH = "data"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_PATH = os.path.join(SCRIPT_DIR, "data")
 EMBEDDING_MODEL_NAME = "text-embedding-3-small"
-EMBEDDING_DIMENSION = 1536
+EMBEDDING_DIMENSION = 1536 
 
 # ============================================================
 # ASYNC/SYNC BRIDGING HELPERS 
