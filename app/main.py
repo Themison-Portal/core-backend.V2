@@ -84,7 +84,7 @@ if os.path.isdir(DATA_DIR):
 allowed_origins = [
     "https://themison-mvp-v1.vercel.app",
     "https://core-frontendv2.vercel.app",
-    "https://core-frontendv22.vercel.app",
+    "https://core-frontendv2-biobert.vercel.app",
     "http://localhost:8080",
     "http://localhost:5173",
 ]
