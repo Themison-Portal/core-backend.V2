@@ -18,7 +18,7 @@ llm = ChatAnthropic(
 
 # Keep OpenAI for embeddings (faster and more efficient)
 embedding_client = OpenAIEmbeddings(
-    model="text-embedding-3-large",
+    model="text-embedding-3-small",
     dimensions=1536,  # Reduce from 3072 to 1536 for Supabase pgvector compatibility
     api_key=settings.openai_api_key
 )

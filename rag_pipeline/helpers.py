@@ -378,7 +378,7 @@ async def rag_query_docling(query_text: str, protocol_id: UUID ):
     top_k = 40
     # run similarity search
     results = await search_similar_chunks_docling(query_text, embeddings, protocol_id, top_k)
-    print(f"results: {results}")
+    
     # filter
     filtered_docs = [d for d in results if d["score"] >= 0.04]
 

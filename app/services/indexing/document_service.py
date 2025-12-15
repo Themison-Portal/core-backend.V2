@@ -141,7 +141,8 @@ class DocumentService(IDocumentService):
 
             await self.db.commit()
             
-            return DocumentResponse.model_validate(document)
+            # return DocumentResponse.model_validate(document)
+            return
 
         except ValueError as e:
             await self.db.rollback()
@@ -391,11 +392,9 @@ class DocumentService(IDocumentService):
         print("\n Ingesion starts here \n")
         print("****************************************")
         try:
-            # Step 1: Download document in memory
-            # response = requests.get(document_url)
-            # pdf_file = io.BytesIO(response.content)
+            
 
-            # 2. Load and chunk with Docling + HybridChunker
+            # 1. Load and chunk with Docling + HybridChunker
             loader = DoclingLoader(
                 file_path=document_url,
                 export_type=ExportType.DOC_CHUNKS,
@@ -405,6 +404,7 @@ class DocumentService(IDocumentService):
 
             texts = [doc.page_content for doc in docs]
 
+            # 2. generate embeddings
             chunk_embeddings = await self.embedding_client.aembed_documents(texts)
 
             await self.insert_docling_chunks(document_id, docs, chunk_embeddings)                        
