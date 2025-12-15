@@ -85,6 +85,7 @@ allowed_origins = [
     "https://themison-mvp-v1.vercel.app",
     "https://core-frontendv2.vercel.app",
     "https://core-frontendv2-biobert.vercel.app",
+    "https://core-frontendv3.vercel.app",
     "http://localhost:8080",
     "http://localhost:5173",
 ]
