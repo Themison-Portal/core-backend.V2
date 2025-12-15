@@ -11,6 +11,7 @@ import requests
 from langchain_core.documents import Document
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 
 from app.contracts.document import DocumentResponse
 from app.core.openai import embedding_client
@@ -18,15 +19,25 @@ from app.core.storage import StorageProvider
 from app.db.session import engine
 from app.models.base import Base
 from app.models.chunks import DocumentChunk
+from app.models.chunks_docling import DocumentChunkDocling
 from app.models.documents import Document as DocumentTable
 from app.services.interfaces.document_service import IDocumentService
 from app.services.utils.chunking import chunk_text
 from app.services.utils.semantic_chunking import chunk_text_semantic
 from app.services.utils.preprocessing import preprocess_text
 
+from docling.chunking import HybridChunker
+from langchain_docling import DoclingLoader
+from transformers import AutoTokenizer
+from langchain_docling.loader import ExportType
+
 # Import your utils
 # from .utils.chunking import chunk_documents
 
+LLM_MODEL_NAME = "gpt-4o-mini"
+
+TOKENIZER_MODEL_ID = "sentence-transformers/all-MiniLM-L6-v2" 
+tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_MODEL_ID)
 
 class DocumentService(IDocumentService):
     """
@@ -65,6 +76,83 @@ class DocumentService(IDocumentService):
             
         except Exception as e:
             raise ValueError(f"Failed to parse PDF: {str(e)}")
+
+
+    def extract_docling_citation_metadata(self, metadata_json):
+        """
+        Returns a dict with page_number and headings for a chunk.
+        """
+        try:
+            dl_meta = metadata_json.get("dl_meta", {})
+            doc_items = dl_meta.get("doc_items", [])
+            headings = dl_meta.get("headings", [])
+
+            # Docling provides provenance info for each doc_item
+            page_number = None
+            if doc_items:
+                prov_list = doc_items[0].get("prov", [])
+                if prov_list:
+                    page_number = prov_list[0].get("page_no")
+
+            return {
+                "page_number": page_number,
+                "headings": headings or []
+            }
+
+        except Exception:
+            return {
+                "page_number": None,
+                "headings": []
+            }
+        
+    async def insert_docling_chunks(
+        self,
+        document_id: UUID,
+        chunks: List[Document],
+        embeddings: List[List[float]],
+        user_id: UUID = None,
+    ) -> DocumentResponse:
+        """
+        Process Docling chunks and add them to `document_chunks_docling` table with embeddings.
+        Mirrors the company's insert_document_with_chunks pattern.
+        """
+        await self.ensure_tables_exist()  # Ensure tables exist first
+
+        try:
+            # Get the existing document (trial_documents)
+            document = await self.db.get(DocumentTable, document_id)
+            if not document:
+                raise ValueError(f"Document {document_id} not found. Frontend should create it first.")
+
+            # Add chunks
+            for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                citation_meta = self.extract_docling_citation_metadata(chunk.metadata)
+                page_number = citation_meta["page_number"]
+                chunk_record = DocumentChunkDocling(
+                    id=uuid4(),
+                    document_id=document.id,  # Reference the existing document
+                    content=chunk.page_content,
+                    page_number=page_number,
+                    chunk_metadata={**chunk.metadata, "chunk_index": i},
+                    embedding=embedding,
+                    created_at=datetime.now(),
+                )
+                self.db.add(chunk_record)
+
+            await self.db.commit()
+            
+            return DocumentResponse.model_validate(document)
+
+        except ValueError as e:
+            await self.db.rollback()
+            raise e
+        except IntegrityError as e:
+            await self.db.rollback()
+            raise ValueError(f"Database integrity error: {str(e)}")
+        except Exception as e:
+            await self.db.rollback()
+            raise RuntimeError(f"Failed to process document Docling chunks: {str(e)}")
+                
 
     async def insert_document_with_chunks(
         self,
@@ -288,6 +376,7 @@ class DocumentService(IDocumentService):
 
         return enhanced_chunks
 
+
     async def process_pdf_complete(
         self,
         document_url: str,
@@ -298,69 +387,110 @@ class DocumentService(IDocumentService):
         """
         Complete PDF processing pipeline for existing document with page tracking.
         """
-
+        print("****************************************")
+        print("\n Ingesion starts here \n")
+        print("****************************************")
         try:
-            # Step 1: Parse PDF with page information and TOC detection
-            extraction_result = await self.parse_pdf_with_page_info(document_url, chunk_size)
-            content = extraction_result["content"]
-            page_boundaries = extraction_result["page_boundaries"]
-            toc_page_range = extraction_result["toc_page_range"]
+            # Step 1: Download document in memory
+            # response = requests.get(document_url)
+            # pdf_file = io.BytesIO(response.content)
 
-            document_filename = document_url.split("/")[-1]
-
-            # Step 2: Chunk content using semantic chunking
-            metadata = {
-                "filename": document_filename,
-                "content_type": "application/pdf",
-                "total_pages": len(page_boundaries),
-                "toc_page_range": toc_page_range  # Store TOC range in document metadata
-            }
-
-            # Use semantic chunking to respect document structure
-            chunks = chunk_text_semantic(
-                content,
-                metadata,
-                chunk_size=1500,  # Larger to fit complete sections
-                chunk_overlap=200
+            # 2. Load and chunk with Docling + HybridChunker
+            loader = DoclingLoader(
+                file_path=document_url,
+                export_type=ExportType.DOC_CHUNKS,
+                chunker=HybridChunker(tokenizer=tokenizer, chunk_size=chunk_size),
             )
+            docs = loader.load()  # list of Document objects
 
-            # Step 3: Add page metadata to chunks with TOC marking
-            enhanced_chunks = self.add_page_metadata_to_chunks(chunks, page_boundaries, toc_page_range)
+            texts = [doc.page_content for doc in docs]
 
-            # Step 4: Preprocess each chunk's content for embedding
-            preprocessed_chunks = []
-            for chunk in enhanced_chunks:
-                preprocessed_content = preprocess_text(chunk.page_content)
-                preprocessed_chunk = Document(
-                    page_content=preprocessed_content,
-                    metadata=chunk.metadata  # Keep all the page metadata including is_toc
-                )
-                preprocessed_chunks.append(preprocessed_chunk)
-
-
-            # Step 5: Generate embeddings for each chunk
-            texts = [chunk.page_content for chunk in preprocessed_chunks]
             chunk_embeddings = await self.embedding_client.aembed_documents(texts)
 
-            # Step 6: Process existing document and add chunks
-            preprocessed_content = preprocess_text(content)
-            document_title = document_filename or "Untitled Document"
-            result = await self.insert_document_with_chunks(
-                title=document_title,
-                document_id=document_id,
-                content=preprocessed_content,
-                chunks=preprocessed_chunks,  # Use enhanced chunks with page info and is_toc
-                embeddings=chunk_embeddings,
-                metadata=metadata,  # Includes toc_page_range
-                user_id=user_id
-            )
+            await self.insert_docling_chunks(document_id, docs, chunk_embeddings)                        
 
             print('✅ PDF processing complete')
 
-            return result
+            
 
         except Exception as e:
             raise RuntimeError(f"PDF processing failed: {str(e)}")
+        
+    
+        
+    # async def process_pdf_complete(
+    #     self,
+    #     document_url: str,
+    #     document_id: UUID,
+    #     user_id: UUID = None,
+    #     chunk_size: int = 750,
+    # ) -> DocumentResponse:
+    #     """
+    #     Complete PDF processing pipeline for existing document with page tracking.
+    #     """
+
+    #     try:
+    #         # Step 1: Parse PDF with page information and TOC detection
+    #         extraction_result = await self.parse_pdf_with_page_info(document_url, chunk_size)
+    #         content = extraction_result["content"]
+    #         page_boundaries = extraction_result["page_boundaries"]
+    #         toc_page_range = extraction_result["toc_page_range"]
+
+    #         document_filename = document_url.split("/")[-1]
+
+    #         # Step 2: Chunk content using semantic chunking
+    #         metadata = {
+    #             "filename": document_filename,
+    #             "content_type": "application/pdf",
+    #             "total_pages": len(page_boundaries),
+    #             "toc_page_range": toc_page_range  # Store TOC range in document metadata
+    #         }
+
+    #         # Use semantic chunking to respect document structure
+    #         chunks = chunk_text_semantic(
+    #             content,
+    #             metadata,
+    #             chunk_size=1500,  # Larger to fit complete sections
+    #             chunk_overlap=200
+    #         )
+
+    #         # Step 3: Add page metadata to chunks with TOC marking
+    #         enhanced_chunks = self.add_page_metadata_to_chunks(chunks, page_boundaries, toc_page_range)
+
+    #         # Step 4: Preprocess each chunk's content for embedding
+    #         preprocessed_chunks = []
+    #         for chunk in enhanced_chunks:
+    #             preprocessed_content = preprocess_text(chunk.page_content)
+    #             preprocessed_chunk = Document(
+    #                 page_content=preprocessed_content,
+    #                 metadata=chunk.metadata  # Keep all the page metadata including is_toc
+    #             )
+    #             preprocessed_chunks.append(preprocessed_chunk)
+
+
+    #         # Step 5: Generate embeddings for each chunk
+    #         texts = [chunk.page_content for chunk in preprocessed_chunks]
+    #         chunk_embeddings = await self.embedding_client.aembed_documents(texts)
+
+    #         # Step 6: Process existing document and add chunks
+    #         preprocessed_content = preprocess_text(content)
+    #         document_title = document_filename or "Untitled Document"
+    #         result = await self.insert_document_with_chunks(
+    #             title=document_title,
+    #             document_id=document_id,
+    #             content=preprocessed_content,
+    #             chunks=preprocessed_chunks,  # Use enhanced chunks with page info and is_toc
+    #             embeddings=chunk_embeddings,
+    #             metadata=metadata,  # Includes toc_page_range
+    #             user_id=user_id
+    #         )
+
+    #         print('✅ PDF processing complete')
+
+    #         return result
+
+    #     except Exception as e:
+    #         raise RuntimeError(f"PDF processing failed: {str(e)}")
     
     async def ensure_tables_exist(self):
         """

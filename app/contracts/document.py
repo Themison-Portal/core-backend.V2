@@ -59,6 +59,10 @@ class DocumentResponse(DocumentBase, TimestampedContract):
     id: UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+    model_config = {
+        "from_attributes": True
+    }
     
 class DocumentUpload(BaseContract):
     """

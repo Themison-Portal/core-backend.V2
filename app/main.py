@@ -123,7 +123,7 @@ app.include_router(
     upload_router,
     prefix="/upload",
     tags=["upload"],
-    dependencies=[Depends(auth.verify_jwt)]
+    # dependencies=[Depends(auth.verify_jwt)]
 )
 
 app.include_router(

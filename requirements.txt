@@ -11,6 +11,8 @@ transformers
 openai
 vecs
 torch
+langchain_huggingface
+langchain_docling
 langchain-community
 langchain[openai]
 langchain_community
@@ -33,4 +35,5 @@ psycopg2-binary
 PyMuPDF
 redis
 Jinja2
+docling
 

@@ -1,16 +1,20 @@
-import os, re, hashlib, difflib, fitz
-from fastapi import APIRouter, Request, Form, HTTPException, Response
+import os, re, hashlib, difflib, fitz, uuid
+from uuid import UUID
+
+from fastapi import APIRouter, Request, Form, HTTPException, Response, UploadFile, File
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.concurrency import run_in_threadpool
 from urllib.parse import quote, unquote_plus
 
 from rag_pipeline.schema.rag_res_schema import RagStructuredResponse
+from rag_pipeline.schema.rag_docling_schema import DoclingRagStructuredResponse
 from rag_pipeline.query_data_store import rag_query
 from rag_pipeline.query_data_store_biobert import rag_query_biobert
 from rag_pipeline.helpers import (
     STATIC_DIR, DATA_DIR, safe_basename,
-    normalize_text, chunk_text, get_blocks_from_redis
+    normalize_text, chunk_text, get_blocks_from_redis, 
+    check_hash_exists, create_protocol_row, process_pdf_document, rag_query_docling
 )
 
 router = APIRouter()
@@ -219,3 +223,80 @@ def clear_redis_cache(request: Request):
         redis_client.delete(key)
         count += 1
     return {"deleted": count}
+
+# ============================================================
+# Endpoints for new RAG using Docling
+# ============================================================
+
+@router.post("/upload-document", response_model=None, response_class=JSONResponse)
+async def upload_document(
+    file: UploadFile = File(..., description="PDF document to upload"),    
+    trial_id: str = Form(..., description="Trial ID associated with this protocol"),
+    uploaded_by: str = Form(..., description="The protocol uploaded by"),   
+):
+    """
+    Upload PDF -> compute hash -> dedupe by hash -> save file -> create DB row 
+    -> link to trial -> process (Docling + chunk + embed).
+    """
+    trial_id = uuid.UUID(trial_id)
+    uploaded_by = uuid.UUID(uploaded_by)    
+
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+
+    file_bytes = await file.read()
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Empty file uploaded.")
+
+    file_hash = hashlib.sha256(file_bytes).hexdigest()
+
+    # --- Check hash ---
+    existing_doc_id = await check_hash_exists(file_hash)
+    if existing_doc_id:
+        # Ensure trial → protocol link exists
+        await link_trial_protocol(trial_id, existing_doc_id)
+
+        return {
+            "message": "File already exists.",
+            "document_id": str(existing_doc_id),
+        }
+
+    # --- Save file locally ---
+    safe_name = safe_basename(file.filename)
+    unique_name = f"{uuid.uuid4().hex}_{safe_name}"
+    save_path = os.path.join(DATA_DIR, unique_name)
+
+    try:
+        with open(save_path, "wb") as out_f:
+            out_f.write(file_bytes)
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {e}")
+
+    # --- Insert protocol row ---
+    try:
+        document_id = await create_protocol_row(safe_name, file_hash, trial_id=trial_id, uploaded_by=uploaded_by)
+    except Exception as e:
+        os.remove(save_path)
+        raise HTTPException(status_code=500, detail=f"Failed to create document record: {e}")    
+
+    # --- Ingeingestion ---
+    await process_pdf_document(document_id, save_path)
+
+    return {
+        "message": "File uploaded successfully.",
+        "filename": unique_name,
+        "document_id": str(document_id),
+    }
+
+
+@router.post("/query-docling")
+async def query_endpoint_docling(
+    query: str = Form(...),
+    document_id: UUID = Form(...)
+):
+    print(f"document_id: {document_id}")
+    
+    result: DoclingRagStructuredResponse = await rag_query_docling(query, document_id)
+    print(f"final result: {result}")
+    return result
+

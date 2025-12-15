@@ -49,5 +49,6 @@ class Document(Base):
     
     # Relationships
     chat_sessions: Mapped[List["ChatSession"]] = relationship("ChatSession", secondary="chat_document_links", back_populates="documents")
-    chunks: Mapped[List["DocumentChunk"]] = relationship("DocumentChunk", back_populates="document")
+    # chunks: Mapped[List["DocumentChunk"]] = relationship("DocumentChunk", back_populates="document")
+    docling_chunks: Mapped[List["DocumentChunkDocling"]] = relationship("DocumentChunkDocling", back_populates="document")
     

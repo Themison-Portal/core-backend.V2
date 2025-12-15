@@ -161,7 +161,7 @@ async def process_query(
         print(f"   🔧 Tool calls: {len(tool_calls)}")
 
         return final_response
-
+ 
     except Exception as e:
         import traceback
         error_traceback = traceback.format_exc()
