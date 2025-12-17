@@ -7,6 +7,10 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from sqlalchemy import text
 from rag_pipeline.schema.rag_res_schema import RagStructuredResponse
 from rag_pipeline.database import AsyncSessionLocal # Assumed to be configured
@@ -251,6 +255,7 @@ async def rag_query_biobert(query_text: str):
     })
 
     return {
+        "question": query_text,
         "response": result.response,
         "sources": result.sources
     }

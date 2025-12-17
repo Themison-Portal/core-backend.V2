@@ -206,6 +206,7 @@ async def rag_query(query_text: str):
         raise ValueError("Query text must be provided.")
 
     embeddings, chat_model = get_rag_components()
+    print("GOT COMPONENTS")
 
     structured_chat_model = ChatOpenAI(
         model=LLM_MODEL_NAME,
