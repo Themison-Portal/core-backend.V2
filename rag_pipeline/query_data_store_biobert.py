@@ -255,7 +255,6 @@ async def rag_query_biobert(query_text: str):
     })
 
     return {
-        "question": query_text,
         "response": result.response,
         "sources": result.sources
     }
