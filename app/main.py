@@ -14,10 +14,8 @@ from app.api.routes.query import router as query_router
 from app.api.routes.upload import router as upload_router
 from app.dependencies.auth import auth
 
-from rag_pipeline.router import router as rag_router
-from rag_pipeline.helpers import STATIC_DIR, DATA_DIR
 from contextlib import asynccontextmanager
-import redis
+from redis.asyncio import Redis
 import logging
 
 # load_dotenv()
@@ -37,26 +35,14 @@ async def lifespan(app: FastAPI):
         # --- 1) Connect to Redis ---
         try:
             redis_url = os.getenv("REDIS_URL")
-            # redis_client = redis.Redis(host="localhost", port=6379, db=0)
+            # redis_client = Redis(host="localhost", port=6379, db=0, decode_responses=False)
             redis_client = redis.from_url(redis_url, decode_responses=True)
-            redis_client.ping()
+            await redis_client.ping()
             app.state.redis_client = redis_client
             logging.info("Redis connection successful.")
         except Exception as e:
             logging.error(f"Redis connection failed: {e}")
-            raise RuntimeError("Failed to connect to Redis") from e
-
-        # --- 2) Preload PDF blocks ---
-        try:
-            from rag_pipeline.helpers import load_pdf_blocks_into_redis
-            logging.info("Loading PDF blocks into Redis…")
-            load_pdf_blocks_into_redis(redis_client)
-            logging.info("PDF blocks loaded.")
-        except Exception as e:
-            logging.error(f"Error loading PDF blocks: {e}")
-            # Continue running; depends if you want this to be fatal
-            raise       
-
+            raise RuntimeError("Failed to connect to Redis") from e            
         
         yield
 
@@ -64,7 +50,7 @@ async def lifespan(app: FastAPI):
         # --- 3) Shutdown cleanup ---
         if redis_client:
             try:
-                redis_client.close()
+                await redis_client.close()
                 logging.info("Redis connection closed.")
             except Exception as e:
                 logging.error(f"Error closing Redis connection: {e}")
@@ -73,19 +59,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 # app = FastAPI()
 
-if os.path.isdir(STATIC_DIR):
-    app.mount("/rag/static", StaticFiles(directory=STATIC_DIR), name="rag_static")
-
-if os.path.isdir(DATA_DIR):
-    app.mount("/rag/pdfs", StaticFiles(directory=DATA_DIR), name="rag_pdfs")
-
 # CORS configuration for production
 # Note: For production, specify exact origins instead of ['*'] for better security
 allowed_origins = [
     "https://themison-mvp-v1.vercel.app",
     "https://core-frontendv2.vercel.app",
     "https://core-frontendv2-biobert.vercel.app",
-    "https://core-frontendv3.vercel.app",
+    "https://core-frontend-v3.vercel.app",
     "http://localhost:8080",
     "http://localhost:5173",
 ]
@@ -108,12 +88,6 @@ def root():
     return {"status": "ok"}
 
 app.include_router(
-    rag_router,
-    prefix="/rag",
-    tags=["rag"]
-)
-
-app.include_router(
     auth_router,
     prefix="/auth",
     tags=["auth"]
@@ -124,7 +98,7 @@ app.include_router(
     upload_router,
     prefix="/upload",
     tags=["upload"],
-    # dependencies=[Depends(auth.verify_jwt)]
+    dependencies=[Depends(auth.verify_jwt)]
 )
 
 app.include_router(

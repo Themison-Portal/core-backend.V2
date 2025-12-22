@@ -3,12 +3,12 @@ from typing import List, Optional, Literal
 
 
 class RagSource(BaseModel):
-    protocol: str
+    name: str
     page: int
     section: Optional[str] = None
-    exactText: str
+    exactText: str  
+    bboxes: List[List[float]]
     relevance: Literal["high", "medium", "low"]
-
 
 class DoclingRagStructuredResponse(BaseModel):
     response: str

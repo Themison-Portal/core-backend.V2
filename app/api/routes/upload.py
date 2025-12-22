@@ -12,6 +12,8 @@ from app.contracts.document import DocumentResponse
 from app.dependencies.auth import get_current_user
 from app.dependencies.documents import get_document_service
 from app.services.indexing.document_service import DocumentService
+from app.dependencies.rag import get_rag_ingestion_service
+from app.services.doclingRag.rag_ingestion_service import RagIngestionService
 
 router = APIRouter()
 
@@ -27,7 +29,7 @@ class UploadDocumentRequest(BaseModel):
 async def upload_pdf_document(
     request: UploadDocumentRequest,
     user = Depends(get_current_user),
-    document_service: DocumentService = Depends(get_document_service)
+    rag_service: RagIngestionService = Depends(get_rag_ingestion_service),
 ):
     """
     Upload a PDF document
@@ -40,7 +42,7 @@ async def upload_pdf_document(
         # Process existing document through RAG pipeline
         # IMPORTANT: Always use 750 for optimal balance between quality and cost
         print(f"Processing document ID: {request.document_id}")
-        result = await document_service.process_pdf_complete(
+        result = await rag_service.ingest_pdf(
             document_url=request.document_url,
             document_id=request.document_id,
             user_id=user["id"]            
