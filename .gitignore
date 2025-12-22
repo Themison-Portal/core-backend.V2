@@ -19,6 +19,9 @@ wheels/
 .installed.cfg
 *.egg
 
+# Knowledge Graph Serialization
+*.pkl
+
 # Virtual Environment
 venv/
 env/

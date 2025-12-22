@@ -5,10 +5,14 @@ from rag_pipeline.database import AsyncSessionLocal # Assumed to be configured
 import asyncio
 import os
 from pathlib import Path
+import pickle
 
 # ragas dataset
-from ragas.testset.transforms.relationship_builders.traditional import JaccardSimilarityBuilder
-from ragas.testset.transforms.relationship_builders.cosine import CosineSimilarityBuilder
+from ragas.testset.transforms.relationship_builders.traditional import(
+                                                                    OverlapScoreBuilder,
+                                                                    JaccardSimilarityBuilder
+                                                                )
+from ragas.testset.transforms.relationship_builders.cosine import CosineSimilarityBuilder, SummaryCosineSimilarityBuilder
 from ragas.testset.transforms import apply_transforms, Parallel
 
 from ragas.testset.transforms.extractors import (HeadlinesExtractor, 
@@ -17,9 +21,19 @@ from ragas.testset.transforms.extractors import (HeadlinesExtractor,
                                     EmbeddingExtractor
                                     )
 
-from ragas.testset.synthesizers import (
-    MultiHopSpecificQuerySynthesizer,
+from ragas.testset.transforms.splitters import (HeadlineSplitter)
+
+from ragas.testset.synthesizers.multi_hop.specific import (
+    MultiHopSpecificQuerySynthesizer
+)
+
+from ragas.testset.synthesizers.multi_hop.abstract import (
     MultiHopAbstractQuerySynthesizer
+)
+
+from ragas.testset.synthesizers.multi_hop.base import (
+    MultiHopQuerySynthesizer,
+    MultiHopScenario,
 )
 
 from ragas.testset.synthesizers.prompts import (
@@ -60,39 +74,58 @@ OUTPUT_DATASETS_PATH.mkdir(parents=True, exist_ok=True)
 # Load environment variables from .env
 load_dotenv()
 
-async def fetch_documents(k: int = 100):
+async def fetch_data():
 
-    if k <= 0:
-        raise Exception("k should be positive")
-
+    # fetch data and sort it by page and creation, so 
+    # we have the whole document in proper page-wise chunks
     async with AsyncSessionLocal() as session:
         sql = text(
             """
             SELECT dd.id, dd.document_id, dd.content, dd.page_number
             FROM document_chunks_docling dd
-            LIMIT :k
+            ORDER BY dd.page_number ASC, dd.created_at ASC
             """
             )
         
     
         result = await session.execute(
-            sql,
-            {"k": k}
+            sql
         )
 
-        rows = result.fetchall()
+        return result.fetchall()
 
-    docs = []
-    for row in rows:
-        docs.append({
-            "document_chunk_content": row.content,
-            "metadata": {
-                "document_id": str(row.document_id),
-                "page_number": row.page_number
-            }
-        })
+
+def page_wise_window_generator(docs):
+    """
+    Takes each row from the database, collects it into one page and yields a result
+    for knowledge graph node's creation.
     
-    return docs
+    :param chunks: Description
+    """
+
+    i = 0
+    current_page = 1
+    window = {"document_chunk_content": "",
+            "metadata": {
+                "document_id": "",
+                "page_number": ""
+            }
+    }
+    while i < len(docs):
+        # we gather all chunks and yield each chunk
+        row = docs[i]
+        page = window
+        page["metadata"]["document_id"] = str(row.document_id)
+        page["metadata"]["page_number"] = str(current_page)
+        while i < len(docs) and docs[i].page_number == current_page:
+            page["document_chunk_content"] = row.content
+            i += 1
+
+        yield page
+
+        # after processing one page go to the next one
+        current_page += 1
+
 
 
 def get_pipeline_components():
@@ -107,18 +140,117 @@ def get_pipeline_components():
 
     return generator_embeddings, generator_llm, openai_client
 
-async def generate_test_set(input_size: int, output_size: int, dataset_output_name: str):
-    docs = await fetch_documents(k=input_size)
+
+
+
+def apply_and_cache_stage(kg, transforms, stage_name, force_rebuild=False):
+    cache_file = OUTPUT_DATASETS_PATH / f"kg_{stage_name}.pkl"
+    
+    if not force_rebuild and cache_file.exists():
+        with open(cache_file, "rb") as f:
+            kg = pickle.load(f)
+        print(f"✅ Loaded {stage_name} cache")
+        return kg
+    
+    apply_transforms(kg, transforms=transforms)
+    
+    with open(cache_file, "wb") as f:
+        pickle.dump(kg, f)
+    print(f"💾 Cached {stage_name}")
+    
+    return kg
+
+
+# @dataclass
+# class MyMultiHopQuery(MultiHopQuerySynthesizer):
+
+#     theme_persona_matching_prompt = ThemesPersonasMatchingPrompt()
+
+#     async def _generate_scenarios(
+#         self,
+#         n: int,
+#         knowledge_graph,
+#         persona_list,
+#         callbacks,
+#     ) -> t.List[MultiHopScenario]:
+
+#         # query and get (node_a, rel, node_b) to create multi-hop queries
+#         results = kg.find_two_nodes_single_rel(
+#             relationship_condition=lambda rel: (
+#                 True if rel.type == "keyphrases_overlap" else False
+#             )
+#         )
+
+#         num_sample_per_triplet = max(1, n // len(results))
+
+#         scenarios = []
+#         for triplet in results:
+#             if len(scenarios) < n:
+#                 node_a, node_b = triplet[0], triplet[-1]
+#                 overlapped_keywords = triplet[1].properties["overlapped_items"]
+#                 if overlapped_keywords:
+
+#                     # match the keyword with a persona for query creation
+#                     themes = list(dict(overlapped_keywords).keys())
+#                     prompt_input = ThemesPersonasInput(
+#                         themes=themes, personas=persona_list
+#                     )
+#                     persona_concepts = (
+#                         await self.theme_persona_matching_prompt.generate(
+#                             data=prompt_input, llm=self.llm, callbacks=callbacks
+#                         )
+#                     )
+
+#                     overlapped_keywords = [list(item) for item in overlapped_keywords]
+
+#                     # prepare and sample possible combinations
+#                     base_scenarios = self.prepare_combinations(
+#                         [node_a, node_b],
+#                         overlapped_keywords,
+#                         personas=persona_list,
+#                         persona_item_mapping=persona_concepts.mapping,
+#                         property_name="keyphrases",
+#                     )
+
+#                     # get number of required samples from this triplet
+#                     base_scenarios = self.sample_diverse_combinations(
+#                         base_scenarios, num_sample_per_triplet
+#                     )
+
+#                     scenarios.extend(base_scenarios)
+
+#         return scenarios
+
+# query = MyMultiHopQuery(llm=llm)
+# scenarios = await query.generate_scenarios(
+#     n=10, knowledge_graph=kg, persona_list=persona_list
+# )
+
+
+
+
+async def generate_test_set(output_size: int, dataset_output_name: str, use_cache: bool = False):
+    docs = await fetch_data()
+
+    page_generator = page_wise_window_generator(docs)
 
     generator_embeddings, generator_llm, openai_client = get_pipeline_components()
 
 
     # KNOWLEDGE GRAPH
-    kg = KnowledgeGraph()
+    print("🔨 Building knowledge graph from scratch...")
+    docs = await fetch_data()
+    page_generator = page_wise_window_generator(docs)
+    generator_embeddings, generator_llm, openai_client = get_pipeline_components()
 
-    # we split the data into chunks
-    # TODO (optional): make the splitting more relevant to our domain
-    for doc in docs:
+    kg = KnowledgeGraph()
+    
+    # EXTRACTION: get information from each node, that is relevant to producing some relationship between them
+    # TODO (optional): write custom extractors, for our domain
+    # extractors take elements from each node (some specific elements)
+    # and based on this establish properties of graph nodes
+
+    for doc in page_generator:
         kg.nodes.append(
             Node(
                 type=NodeType.DOCUMENT,
@@ -126,21 +258,27 @@ async def generate_test_set(input_size: int, output_size: int, dataset_output_na
             )
         )
 
-    # EXTRACTION: get information from each node, that is relevant to producing some relationship between them
-    # TODO (optional): write custom extractors, for our domain
-    # extractors take elements from each node (some specific elements)
-    # and based on this establish relationships between graph nodes
-    # we can create our custom relationships builders
-
-    # headline_extractor = HeadlinesExtractor(llm=generator_llm, max_num=20)
-    # headline_splitter = HeadlineSplitter(max_tokens=1500)
+    # the amount of nodes, should be the same as the amount of pages
+    print("Nodes: ", len(kg.nodes))
     
     # extracts keywords
     keyphrase_extractor = KeyphrasesExtractor(llm=generator_llm, property_name="keyphrases")
     # extracts named entities
     ner_extractor = NERExtractor(llm=generator_llm, property_name="entities")
     # extract embedding of the given page_content (needed for CosineSimilarityBuilder)
-    embedd_extractor = EmbeddingExtractor(embedding_model=generator_embeddings)
+    embedd_extractor = EmbeddingExtractor(property_name="embedding", embedding_model=generator_embeddings)
+    # extract headlines, to split nodes
+    headline_extractor = HeadlinesExtractor(llm=generator_llm, property_name="headlines")
+
+    # SPLITTING
+    # to make the nodes more robust we introduce splitting mechanism, that
+    # divides the nodes based on some criteria
+    # min and max tokens are set to these values because the embedding 
+    # for relationship creation uses different tokenizer
+    splitter = HeadlineSplitter(
+        min_tokens=150, 
+        max_tokens=350
+    )
 
     # build the graph using extracted data (if only extractors, there is no edges)
     # by default relationship building is sequential,
@@ -151,20 +289,24 @@ async def generate_test_set(input_size: int, output_size: int, dataset_output_na
     # # the name of this relationship is jaccard_similarity
     # rel_builder = JaccardSimilarityBuilder(property_name="entities", new_property_name="jaccard_similarity")
 
-    rel_builder = CosineSimilarityBuilder(threshold=0.5)
+    # TODO: requires writing a custom similarity query
+    # cosine_rel_builder = SummaryCosineSimilarityBuilder(property_name= "summary_embedding",new_property_name= "summary_cosine_similarity")
+    # jaccard_rel_builder = JaccardSimilarityBuilder(property_name="entities", new_property_name="jaccard_similarity")
 
-    # TODO: we can add more relationships, to enable abstract queries
-    
-    transforms = [
-        Parallel(
-            keyphrase_extractor,
-            ner_extractor,
-            embedd_extractor
-        ),
-        rel_builder
-    ]
+    overlap_rel_builder = OverlapScoreBuilder(
+        property_name="entities",
+        new_property_name="entities_overlap",
+        threshold=0.1,
+    )
 
-    apply_transforms(kg, transforms=transforms)
+    # build KG transformation after transformation
+    kg = apply_and_cache_stage(kg, [headline_extractor, splitter], "stage1_split", force_rebuild=False)
+    kg = apply_and_cache_stage(kg, [Parallel(keyphrase_extractor, ner_extractor, embedd_extractor)], "stage2_features", force_rebuild=False)
+    kg = apply_and_cache_stage(kg, [overlap_rel_builder], "stage3_relationships", force_rebuild=False)
+
+
+    print("Nodes: ", len(kg.nodes))
+    print("Relationships: ", len(kg.relationships))
 
     persona_young_nurse = Persona(
         name="Young Nurse",
@@ -184,26 +326,31 @@ async def generate_test_set(input_size: int, output_size: int, dataset_output_na
         raise Exception("Multi-hop requires at least one relationship")
     
 
-    query_distibution = [
+    query_distribution = [
         (
             SingleHopSpecificQuerySynthesizer(llm=generator_llm, property_name="keyphrases"),
-            0.5,
+            0.1,
         ),
         (
             SingleHopSpecificQuerySynthesizer(
                 llm=generator_llm, property_name="entities"
             ),
-            0.5,
+            0.3,
         ),
-        # # to use multi-hop a relationship needs to exist
         # (
-        #     MultiHopSpecificQuerySynthesizer(llm=generator_llm, property_name="cosine_similarity"),
-        #     0.6,
-        # )
-        #  (
         #     MultiHopAbstractQuerySynthesizer(llm=generator_llm),
-        #     0.3,
+        #     0.2,
         # ),
+
+        (
+        MultiHopSpecificQuerySynthesizer(
+            llm=generator_llm, 
+            property_name="entities", 
+            relation_type="entities_overlap",
+            relation_overlap_property="overlapped_items"
+        ), 
+        0.6
+    ),
 
     ]
 
@@ -216,7 +363,7 @@ async def generate_test_set(input_size: int, output_size: int, dataset_output_na
         persona_list=personas,
     )
 
-    testset = generator.generate(testset_size=output_size, query_distribution=query_distibution)
+    testset = generator.generate(testset_size=output_size, query_distribution=query_distribution)
     df = testset.to_pandas()
 
     df.to_csv(OUTPUT_DATASETS_PATH / dataset_output_name)
@@ -225,7 +372,7 @@ async def generate_test_set(input_size: int, output_size: int, dataset_output_na
 
 
 async def main():
-    await generate_test_set(input_size=40, output_size=20, dataset_output_name="test.csv")
+    await generate_test_set(output_size=20, dataset_output_name="test.csv", use_cache=True)
 
 
 if __name__ == "__main__":
