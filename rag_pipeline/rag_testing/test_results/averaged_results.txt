@@ -1,0 +1,1 @@
+[('gpt-4o-mini_pritamdeka__S-BioBert-snli-multinli-stsb', {'answer_relevancy': 0.9355, 'faithfulness': 0.4006}), ('gpt-4o-mini_text-embedding-3-small', {'answer_relevancy': 0.9293, 'faithfulness': 0.4639})]

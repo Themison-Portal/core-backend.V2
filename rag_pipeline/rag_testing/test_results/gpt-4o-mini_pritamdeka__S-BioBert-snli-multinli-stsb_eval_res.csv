@@ -1,0 +1,270 @@
+,user_input,retrieved_contexts,response,reference,answer_relevancy,faithfulness
+0,Can you tell me what Sym004 is and how it is used in the clinical trial for patients with metastatic colorectal cancer?,"['Sym004 will be administered in combination with FOLFIRI.', 'The binding of Sym004 induces a distinct mechanism of action.', 'The trial includes Dose-Escalation and Dose-Expansion phases.', 'The expected response rate is projected to be between 32% and 47%.']","# Overview of Sym004
+
+**Sym004** is an investigational medicinal product (IMP) that consists of a **1:1 mixture of two humanized monoclonal antibodies (mAbs)** directed against the **Epidermal Growth Factor Receptor (EGFR)**. It is formulated as a **5.0 mg/mL solution** provided in clear glass vials with a nominal fill volume of **30 mL**. The product is designed to be administered in combination with **FOLFIRI**, a standard chemotherapy regimen used for treating metastatic colorectal cancer (mCRC).
+
+## Mechanism of Action
+Sym004 binds to **non-overlapping epitopes** on domain III of the EGFR, inducing a distinct mechanism of action that promotes the **internalization and degradation** of the EGFR, leading to down-regulation of the receptor and subsequent inhibition of cancer cell growth (p. 20, ¶1).
+
+## Clinical Trial Usage
+The clinical trial titled **""An Open-label, Multi-Center Phase 1b/2a Trial Investigating Different Doses of Sym004 in Combination with FOLFIRI in Patients with Metastatic Colorectal Cancer Progressing after First-Line Therapy""** (Trial ID: Sym004-09) aims to evaluate the efficacy and safety of Sym004 in patients with mCRC who have progressed after first-line therapy. The trial includes:
+
+1. **Dose-Escalation Phase**: To determine the **Maximum Tolerated Dose (MTD)** and/or **Recommended Phase 2 Dose (RP2D)** of Sym004 when administered by intravenous infusion every second week in combination with FOLFIRI.
+2. **Dose-Expansion Phase**: To evaluate the **antineoplastic effect** of Sym004 at the RP2D in combination with FOLFIRI (p. 14, ¶1).
+
+### Expected Outcomes
+Based on previous studies, it is anticipated that the trial will observe **1-2 patients** with confirmed **Complete Response (CR)** or **Partial Response (PR)**. The expected response rate is projected to be between **32% and 47%** (p. 119, ¶1).
+
+### Administration Details
+- **Administration**: Sym004 will be administered in combination with FOLFIRI, with infusions occurring every second week.
+- **Preparation**: Sym004 will be diluted in saline prior to administration, with specific volumes depending on the dose (p. 44, ¶1).
+
+## Conclusion
+Sym004 represents a promising therapeutic option for patients with metastatic colorectal cancer, particularly those who have shown resistance to previous anti-EGFR therapies. The ongoing clinical trial aims to further elucidate its efficacy and safety profile in this patient population.","Sym004 is being investigated in a clinical trial that looks at different doses of it in combination with FOLFIRI for patients who have metastatic colorectal cancer that is progressing after first-line therapy. This trial is an open-label, multi-center Phase 1b/2a study sponsored by Symphogen A/S.",0.9676619994109036,0.5769230769230769
+1,What is the GCP Stetement in the clinical trial protocol?,"['GCP Statement: The trial will be conducted in compliance with this Clinical Trial Protocol, ICH E6 GCP (1) and applicable regulations.']","# GCP Statement in the Clinical Trial Protocol
+
+The **GCP Statement** in the clinical trial protocol outlines the commitment to conduct the trial in accordance with established guidelines and regulations. It states:
+
+> ""The trial will be conducted in compliance with this Clinical Trial Protocol, ICH E6 GCP (1) and applicable regulations.""  
+
+This document is confidential and is the property of Symphogen A/S. It emphasizes that:
+- No unpublished information contained herein may be passed on, reproduced, published, or used without prior written approval from Symphogen A/S.
+- Access to this document must be restricted to relevant parties.
+
+This ensures that all parties involved in the trial adhere to the highest standards of ethical and scientific integrity, as mandated by Good Clinical Practice (GCP) guidelines (p. 2, ¶1).  
+
+## Importance of GCP Compliance
+1. **Adherence to Protocol**: The trial must follow the Clinical Trial Protocol and ICH E6 GCP guidelines.
+2. **Regulatory Compliance**: It is essential to comply with applicable regulations in the country where the trial takes place.
+3. **Protection of Participants**: Ensuring the safety and rights of participants is paramount.
+
+By following these guidelines, the trial aims to maintain the integrity of the data collected and the safety of the participants involved.","The GCP Statement in the clinical trial protocol indicates that the trial will be conducted in compliance with the Clinical Trial Protocol, ICH E6 GCP (1), and applicable regulations.",0.9403181323919054,0.4
+2,Can you provide an overview of the approval process for a Clinical Trial Protocol as indicated by the sponsor's statement?,"['Overview of the approval process for a Clinical Trial Protocol.', 'Overview of the approval process for a Clinical Trial Protocol.', 'Overview of the approval process for a Clinical Trial Protocol.', 'Overview of the approval process for a Clinical Trial Protocol.', 'Overview of the approval process for a Clinical Trial Protocol.']","# Overview of the Approval Process for a Clinical Trial Protocol
+
+The approval process for a Clinical Trial Protocol (CTP) involves several key steps to ensure compliance with ethical and regulatory standards. Below is a structured overview of this process:
+
+## 1. **Protocol Amendments**  
+- Any amendments to the protocol must receive **IRB/IEC approval** before implementation.  
+- Exceptions are made for changes necessary to eliminate an immediate hazard to study participants (p. 64, ¶1).
+
+## 2. **Investigator Responsibilities**  
+The Investigator is responsible for:  
+- Providing written summaries of the study status to the IRB/IEC annually or more frequently as required.  
+- Notifying the IRB/IEC of Serious Adverse Events (SAEs) or significant safety findings as per IRB/IEC procedures.  
+- Ensuring adherence to the requirements of 21 CFR, ICH guidelines, and applicable local regulations (p. 64, ¶1).
+
+## 3. **Informed Consent Process**  
+- The Investigator or representative must explain the study's nature to participants or their legally authorized representatives.  
+- Participants must be informed that their participation is voluntary and must sign a statement of informed consent that meets regulatory requirements (p. 64, ¶1).
+
+## 4. **Ethics Committee Review**  
+- An Independent Ethics Committee (IEC) or Institutional Review Board (IRB) will review the CTP, amendments, advertisements for recruitment, and informed consent documents (p. 88, ¶1).
+- The IEC/IRB ensures that all patient information is adequate and that patients are fully informed before giving consent (p. 88, ¶1).
+
+## 5. **Documentation and Compliance**  
+- The trial must be conducted in accordance with the CTP, the Declaration of Helsinki, ICH E6 GCP, and other applicable laws (p. 88, ¶1).
+- The Investigator must maintain a comprehensive filing system of all trial-related documentation suitable for inspection (p. 92, ¶1).
+
+This structured process ensures that clinical trials are conducted ethically and in compliance with regulatory standards, protecting the rights and safety of participants.
+","The approval process for a Clinical Trial Protocol involves the sponsor's formal endorsement, as evidenced by the statement 'I hereby approve the Clinical Trial Protocol as suitable and appropriate for use.' This indicates that the sponsor, in this case, Symphogen A/S, has reviewed the protocol and deemed it compliant with necessary standards for conducting the clinical trial.",0.9335061186797227,0.15
+3,What is the responsibilty of the principal investigator in a clinicl trial?,"[""The Principal Investigator's responsibilities are outlined in the protocol."", 'The PI must ensure patient eligibility.', 'The PI is responsible for assessing adverse events.', 'The PI must obtain informed consent from patients.', 'The PI must maintain accurate records.']","# Responsibilities of the Principal Investigator in a Clinical Trial
+
+The Principal Investigator (PI) plays a crucial role in the conduct of clinical trials. Their responsibilities include:
+
+1. **Conduct of the Trial**  
+   The PI is responsible for the proper conduct of the clinical trial at the investigational site. This includes ensuring that the trial is conducted in compliance with the Clinical Trial Protocol and applicable regulations (p. 4, ¶1).
+
+2. **Protocol Compliance**  
+   The PI must not implement any changes to the Clinical Trial Protocol without agreement from the Sponsor and prior review and written approval from the Ethics Committee, except where necessary to eliminate an immediate hazard to the patient (p. 4, ¶1).
+
+3. **Good Clinical Practice (GCP)**  
+   The PI must comply with Good Clinical Practice (ICH GCP) and all applicable regulatory requirements (p. 4, ¶1).
+
+4. **Delegation of Tasks**  
+   The PI is responsible for ensuring that all site staff to whom tasks have been delegated are adequately informed about the investigational product(s) and their trial-related duties and functions as described in the Clinical Trial Protocol (p. 4, ¶1).
+
+5. **Patient Eligibility**  
+   The PI must address and resolve questions regarding patient eligibility in consultation with the Sponsor or designee prior to enrollment (p. 38, ¶1).
+
+6. **Adverse Event Assessment**  
+   The PI must assess adverse events (AEs) as either related or not related to the investigational medicinal product (IMP) and/or treatment regimen, and record this assessment within the initial report (p. 77, ¶1).
+
+7. **Informed Consent**  
+   The PI or their designee must obtain written informed consent from each patient before any trial-related procedures are performed, ensuring that patients receive full information about the trial (p. 88, ¶2).
+
+8. **Safety Monitoring**  
+   The PI is responsible for monitoring the safety of trial participants and must report any serious adverse events (SAEs) to the Sponsor or designee promptly (p. 81, ¶1).
+
+9. **Documentation and Record Keeping**  
+   The PI must maintain accurate and complete records of the trial, including source documentation and patient data, to ensure compliance with regulatory requirements (p. 91, ¶2).
+
+10. **Communication with the Sponsor**  
+    The PI must provide medical support to the Sponsor and update them on trial status at scheduled meetings (p. 90, ¶1).  
+
+In summary, the Principal Investigator holds a pivotal role in ensuring the integrity, safety, and compliance of the clinical trial process.","The principal investigator is responsible for the proper conduct of the clinical trial at the site. They must not implement any changes to the Clinical Trial Protocol without agreement from the Sponsor and prior review and written approval from the Ethics Committee, except when necessary to eliminate an immediate hazard to the patient. They also need to ensure that all site staff delegated tasks for the clinical trial are adequately informed about the investigational product(s) and their trial-related duties as described in the Clinical Trial Protocol.",0.9744952559628784,0.6111111111111112
+4,What section of the document contains the definitions of terms?,"['Definitions related to ulcerative colitis are included in the references section.', 'Definitions related to dose-limiting toxicities are provided in Section 9.5.', 'Definitions regarding the severity of adverse events are defined using CTCAE guidelines.', 'Definitions regarding data protection and participant identifiers are outlined in Section 10.1.3.']","# Section Containing Definitions of Terms
+
+The definitions of terms can be found in the following sections of the documents:
+
+1. **Ulcerative Colitis Protocol**
+   - The definitions related to ulcerative colitis are included in the references section, specifically in the context of the second European evidence-based consensus on the diagnosis and management of ulcerative colitis (p. 82, ¶1).
+
+2. **Oncology Protocol**
+   - Definitions related to dose-limiting toxicities are provided in Section 9.5, which includes the definition of dose-limiting toxicities (p. 79, ¶1).
+   - Additionally, the severity of adverse events is defined using CTCAE guidelines in Section 9.2.3 (p. 76, ¶1).
+
+3. **Diabetes Protocol**
+   - Definitions regarding data protection and participant identifiers are outlined in Section 10.1.3 (p. 65, ¶1).
+
+These sections provide essential definitions that are crucial for understanding the protocols and their implementation in clinical trials.",The definitions of terms are found in the section titled 'LIST OF ABBREVIATIONS AND DEFINITIONS OF TERMS' as indicated in the Table of Contents.,0.8523217568584885,0.45454545454545453
+5,Can you provide details regarding the significance of Version 4.0 in the context of the Schedule of Events for Trial ID: Sym004-09?,"['This section outlines the procedures and timelines for patient assessments and follow-ups in the trial.', 'This section emphasizes the importance of obtaining informed consent before any trial-related procedures.', 'This section highlights the need for documentation of any deviations from the planned schedule.']","# Significance of Version 4.0 in the Context of the Schedule of Events for Trial ID: Sym004-09
+
+Version 4.0 of the Symphogen Clinical Trial Protocol (Trial ID: Sym004-09) includes several critical updates and clarifications regarding the Schedule of Events, which is essential for ensuring the proper conduct of the trial. Below are the key points:
+
+## 1. Overview of the Schedule of Events
+- The Schedule of Events outlines the timeline and specific assessments that will be conducted throughout the trial.
+- It is crucial for maintaining consistency and compliance with regulatory requirements.
+
+## 2. Key Updates in Version 4.0
+- **Informed Consent**: Prior to any protocol-related procedures, informed consent must be obtained from patients (p. 64, ¶1).
+- **Screening Procedures**: The protocol specifies that screening procedures must be completed before the first dose (C1/D1) (p. 64, ¶1).
+- **End of Treatment (EOT) Visit**: An EOT visit is mandated within 10 days after discontinuation of all trial medications, with a follow-up visit scheduled one month later (p. 34, ¶1).
+
+## 3. Importance of Compliance
+- Adherence to the Schedule of Events is vital for the integrity of the trial data and patient safety.
+- Any deviations from the planned schedule must be documented and justified in accordance with the protocol (p. 87, ¶1).
+
+## 4. Conclusion
+- Version 4.0 of the protocol enhances clarity and ensures that all trial participants are aware of their responsibilities and the timeline of assessments, which is essential for the successful execution of the trial.
+
+These updates reflect the commitment to maintaining high standards in clinical trial management and patient care.","Version 4.0 is referenced in the context of the Schedule of Events for Trial ID: Sym004-09, indicating a specific iteration of the trial documentation that outlines the events and procedures to be followed during the trial. This version is crucial for ensuring that all stakeholders are aligned with the latest updates and requirements as stipulated in the trial protocol.",0.9117618250242125,0.15384615384615385
+6,What does the treatment of skin toxicity involve in the context of clinical trials?,"['Treatment of Skin Toxicity Recommendations', 'Prophylactic Treatment for Skin Toxicity', 'Treatment of Rash', 'Treatment of Paronychia', 'Treatment of Photosensitivity', 'Treatment of Pruritus']","# Treatment of Skin Toxicity in Clinical Trials
+
+## Overview
+The management of skin toxicity induced by Sym004 in clinical trials involves specific recommendations based on the severity of the toxicity. Skin toxicities can include rash, xerosis, paronychia, pruritus, photosensitivity, and fissures.
+
+## Treatment Recommendations
+1. **Grade 1 to 3 Skin Toxicities**: 
+   - Recommendations for management are summarized in Tables 10 to 15 of the protocol.
+   - **Grade 4 Skin Toxicity**: 
+     - Patients must be withdrawn from Sym004 treatment.
+     - Consultation with a dermatologist is strongly recommended for Grade 3 or 4 skin toxicity.
+
+2. **Prophylactic Treatment**: 
+   - All patients will receive mandatory prophylactic treatment for skin toxicities, which may continue beyond Cycle 2 at the Investigator’s discretion (p. 54, ¶1).
+   - **Systemic Therapy**: 
+     - Minocycline or Doxycycline: 100 mg/day or 200 mg/day, starting on Day 1 of Cycle 1 and continuing until the end of Cycle 2.
+   - **Topical Therapy**: 
+     - Low potency steroid creams (e.g., Alclometasone 0.05%, Desonide 0.05%, Fluocinolone 0.01%) applied twice daily on the face and chest, and moisturizers applied three times daily to hands and body (p. 54, ¶1).
+
+3. **Specific Treatments for Different Grades of Skin Toxicity**:
+   - **Rash**: 
+     - Grade 1: Continue at the same dose; topical steroid creams and moisturizers.
+     - Grade 2: Continue at the same dose; consider oral steroids if debilitating.
+     - Grade 3: Delay dose of Sym004 and continue skin treatment (p. 56, ¶1).
+   - **Paronychia**: 
+     - Grade 1: Topical antibiotics and vinegar soaks.
+     - Grade 2: Localized and oral interventions indicated.
+     - Grade 3: Surgical intervention or IV antibiotics may be necessary (p. 58, ¶1).
+   - **Photosensitivity**: 
+     - Grade 1: Continue at the same dose; apply broad-spectrum sunscreen.
+     - Grade 2: Continue at the same dose; consider topical corticosteroids.
+     - Grade 3: Delay dose of Sym004 and continue skin treatment (p. 60, ¶1).
+   - **Pruritus**: 
+     - Grade 1: Topical interventions.
+     - Grade 2: Continue at the same dose; consider oral antihistamines.
+     - Grade 3: Delay dose of Sym004 and continue skin treatment (p. 59, ¶1).
+
+## Conclusion
+Effective management of skin toxicity in clinical trials is crucial for patient safety and treatment adherence. The outlined protocols ensure that patients receive appropriate care based on the severity of their symptoms.
+
+---","The treatment of skin toxicity is addressed in the Symphogen Trial ID: Sym004-09, as outlined in the clinical trial protocol.",0.9144198363672693,0.7916666666666666
+7,"What are the key sections related to Trial ID: Sym004-09 in the provided context, and what do they cover?","['Symphogen Clinical Trial Protocol Trial ID: Sym004-09 Version 4.0 Confidential Page 1 of 122', 'Symphogen Clinical Trial Protocol Trial ID: Sym004-09 Version 4.0 Confidential Page 74 of 122', 'Symphogen Clinical Trial Protocol Trial ID: Sym004-09 Version 4.0 Confidential Page 77 of 122', 'Symphogen Clinical Trial Protocol Trial ID: Sym004-09 Version 4.0 Confidential Page 89 of 122', 'Symphogen Clinical Trial Protocol Trial ID: Sym004-09 Version 4.0 Confidential Page 79 of 122', 'Symphogen Clinical Trial Protocol Trial ID: Sym004-09 Version 4.0 Confidential Page 88 of 122', 'Symphogen Clinical Trial Protocol Trial ID: Sym004-09 Version 4.0 Confidential Page 88 of 122', 'Symphogen Clinical Trial Protocol Trial ID: Sym004-09 Version 4.0 Confidential Page 98 of 122', 'Symphogen Clinical Trial Protocol Trial ID: Sym004-09 Version 4.0 Confidential Page 91 of 122']","# Key Sections Related to Trial ID: Sym004-09
+
+## 1. Overview of the Trial
+The **Symphogen Clinical Trial Protocol** for Trial ID: **Sym004-09** is an open-label, multi-center Phase 1b/2a trial investigating different doses of **Sym004** in combination with **FOLFIRI** in patients with metastatic colorectal cancer progressing after first-line therapy. The trial is sponsored by **Symphogen A/S** and is conducted in compliance with applicable regulations and Good Clinical Practice (GCP) guidelines (p. 1, ¶1).
+
+## 2. Adverse Events (AEs)
+### 2.1 Definitions of Adverse Events
+- An **Adverse Event (AE)** is any untoward medical occurrence in a patient administered a pharmaceutical product, which does not necessarily have a causal relationship with the treatment. 
+- AEs can include unfavorable and unintended signs, symptoms, or diseases temporally associated with the use of an Investigational Medicinal Product (IMP) (p. 74, ¶1).
+
+### 2.2 Assessment of AEs
+- The investigator must assess whether an AE is related to the IMP and/or FOLFIRI. The assessment must be recorded within the initial report (CRF and SAE report form) (p. 77, ¶1).
+- AEs are categorized as:
+  - **Not Related**: Does not follow a reasonable temporal sequence from drug administration.
+  - **Related**: Follows a reasonable temporal sequence from drug administration and cannot be explained by the patient’s clinical state (p. 77, ¶1).
+
+## 3. Safety Surveillance
+### 3.1 Independent Safety Monitoring Committee (ISMC)
+- An **ISMC** will be established to review all reported AEs and Serious Adverse Events (SAEs) on an ongoing basis. The ISMC will make decisions regarding dose escalation, de-escalation, and trial continuation (p. 89, ¶1).
+
+### 3.2 Reporting to Health Authorities
+- The Sponsor is responsible for assessing the seriousness, causality, and expectedness of SAEs reported by the investigator. All relevant safety information must be reported to Health Authorities and IRBs (p. 79, ¶1).
+
+## 4. Ethics and Informed Consent
+### 4.1 Independent Ethics Committee (IEC) Review
+- An IEC will review the Clinical Trial Protocol (CTP) and any amendments, ensuring that informed consent documents are adequate and that patients are fully informed of the trial's objectives and risks (p. 88, ¶1).
+
+### 4.2 Patient Information and Consent
+- Written informed consent must be obtained from each patient before any trial-related procedures are performed (p. 88, ¶2).
+
+## 5. Premature Termination of the Trial
+### 5.1 Conditions for Termination
+- The trial may be terminated if unexpected risks to patients are discovered, lack of efficacy is noted, or if the sponsor decides to discontinue development of the IMP (p. 98, ¶1).
+
+## 6. Monitoring and Quality Assurance
+### 6.1 Compliance with GCP
+- The responsibilities of the Sponsor, Monitor, and Investigator are defined in ICH E6 GCP and applicable regulatory requirements (p. 91, ¶1). 
+
+## Conclusion
+The **Sym004-09** trial is structured to ensure patient safety and compliance with ethical standards, with detailed protocols for monitoring adverse events and conducting safety assessments throughout the trial.
+
+---","The key sections related to Trial ID: Sym004-09 in the provided context include: 8.8, which covers Follow-up Assessments, and 8.9, which addresses the Appropriateness of Measurements. Both sections are part of Version 4.0 and are referenced on page 73. Additionally, section 9 pertains to ADVERSE events related to Trial ID: Sym004-09.",0.9812281094891688,0.0
+8,What is the role of the Independent Ethics Committee in clinical trials?,"['The IEC reviews the CTP, including any amendments and advertisements used for recruitment, as well as the informed consent documents and any other written materials provided to patients.', ""Patients must receive comprehensive information about the trial's objectives, procedures, and potential risks before consenting."", 'The IEC ensures that the trial is conducted in accordance with the CTP, the principles of the Declaration of Helsinki, ICH E6 GCP, and other applicable laws.', 'Any amendments to the protocol require IEC approval before implementation, except for changes necessary to eliminate immediate hazards to study participants.', 'The IEC ensures that patient confidentiality is maintained throughout the trial.']","# Role of the Independent Ethics Committee (IEC) in Clinical Trials
+
+The Independent Ethics Committee (IEC) plays a crucial role in ensuring the ethical conduct of clinical trials. Here are the key responsibilities of the IEC:
+
+1. **Review of Clinical Trial Protocol (CTP)**  
+   The IEC reviews the CTP, including any amendments and advertisements used for recruitment, as well as the informed consent documents and any other written materials provided to patients (p. 88, ¶1).
+
+2. **Patient Information and Informed Consent**  
+   - The Investigator or their designee must obtain written informed consent from each patient before any trial-related procedures are performed.  
+   - Patients must receive comprehensive information about the trial's objectives, procedures, and potential risks before consenting (p. 88, ¶1).
+   - The informed consent form must be signed and dated by both the patient and the Investigator (p. 88, ¶1).
+
+3. **Monitoring Compliance**  
+   The IEC ensures that the trial is conducted in accordance with the CTP, the principles of the Declaration of Helsinki, ICH E6 GCP, and other applicable laws (p. 88, ¶1).
+
+4. **Notification of Changes**  
+   Any amendments to the protocol require IEC approval before implementation, except for changes necessary to eliminate immediate hazards to study participants (p. 64, ¶1).
+
+5. **Annual Reporting**  
+   The Investigator is responsible for providing written summaries of the study status to the IEC annually or more frequently as required (p. 64, ¶1).
+
+6. **Confidentiality of Patient Data**  
+   The IEC ensures that patient confidentiality is maintained throughout the trial (p. 73, ¶1).  
+
+In summary, the IEC is essential for safeguarding the rights and welfare of trial participants, ensuring ethical standards are upheld throughout the clinical trial process.","The Independent Ethics Committee, also known as the Institutional Review Board, is responsible for overseeing the ethical aspects of clinical trials, ensuring that the rights and welfare of participants are protected.",0.9999999999999997,0.75
+9,What section of the document addresses Infusion-Related Reactions Management?,"['An Infusion-Related Reaction (IRR) is defined as an AE occurring during the Sym004 infusion and up to 2 hours (or longer, if considered by the Investigator to be an IRR) after the EOI, which is assessed by the Investigator to be related to the infusion of Sym004.']","# Infusion-Related Reactions Management
+
+Infusion-Related Reactions (IRRs) are defined as adverse events occurring during the infusion of Sym004 and up to 2 hours after the end of infusion (EOI). The management of these reactions is crucial for patient safety and is outlined as follows:
+
+## Classification of Infusion-Related Reactions
+1. **Grade 1**: Mild transient reaction; no infusion interruption or intervention needed.
+   - **Action**: Continue infusion and monitor closely.
+
+2. **Grade 2**: Therapy or infusion interruption indicated, but responds promptly to symptomatic treatment (e.g., antihistamines, NSAIDs).
+   - **Action**: 
+     - Interrupt Sym004 infusion for a minimum of 30 minutes.
+     - Administer symptomatic treatment (e.g., antihistamines, NSAIDs).
+     - Use supportive treatment (e.g., bronchodilator, oxygen).
+
+3. **Serious IRRs**: Must be reported in an expedited manner according to the procedure for Serious Adverse Events (SAEs) (p. 49, ¶1). 
+
+This management protocol ensures that any adverse reactions are handled promptly and effectively, maintaining patient safety throughout the trial.
+
+## Additional Notes
+- The Investigator is responsible for assessing the relationship of any adverse events to the infusion of Sym004 and documenting the management steps taken.
+
+For further details, refer to the specific guidelines in the protocol regarding infusion-related reactions management (p. 49, ¶1).","Infusion-Related Reactions Management is addressed in Table 5, 1 of the document.",0.8790420630825737,0.11764705882352941
