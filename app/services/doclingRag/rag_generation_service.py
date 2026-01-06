@@ -1,16 +1,20 @@
-from typing import Dict, Any, List
+import time
+import logging
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
 from uuid import UUID
 
-from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 
 from app.services.doclingRag.interfaces.rag_generation_service import IRagGenerationService
 from app.services.doclingRag.rag_retrieval_service import RagRetrievalService
 from app.schemas.rag_docling_schema import DoclingRagStructuredResponse
+from app.core.openai import structured_llm
 
+if TYPE_CHECKING:
+    from app.services.cache.rag_cache_service import RagCacheService
 
-LLM_MODEL_NAME = "gpt-4o-mini"
+logger = logging.getLogger(__name__)
 
 # -----------------------------------
 # Prompt template
@@ -67,9 +71,13 @@ class RagGenerationService(IRagGenerationService):
     RAG generation service that combines retrieval and LLM generation.
     """
 
-    def __init__(self, retrieval_service: RagRetrievalService):
+    def __init__(
+        self,
+        retrieval_service: RagRetrievalService,
+        cache_service: Optional["RagCacheService"] = None
+    ):
         self.retrieval_service = retrieval_service
-        self.llm_model_name = LLM_MODEL_NAME    
+        self.cache_service = cache_service    
     
 
     def _format_context_docling(self, doc: dict) -> str:
@@ -112,47 +120,93 @@ class RagGenerationService(IRagGenerationService):
         self,
         query_text: str,
         document_id: UUID,
-        top_k: int = 40,
+        top_k: int = 15,  # Reduced from 40 to improve LLM response time
         min_score: float = 0.04
-    ) -> DoclingRagStructuredResponse:
-        
-        # 1. Retrieve raw chunks
-        filtered_chunks = await self.retrieval_service.retrieve_similar_chunks(
+    ) -> dict:
+        """
+        Generate answer with timing information.
+        Returns dict with 'result' (DoclingRagStructuredResponse) and 'timing' info.
+        """
+        generation_start = time.perf_counter()
+        timing_info = {"response_cache_hit": False}
+
+        # 1. Retrieve chunks (already cached in retrieval service)
+        retrieval_start = time.perf_counter()
+        filtered_chunks, retrieval_timing = await self.retrieval_service.retrieve_similar_chunks(
             query_text=query_text,
             document_id=document_id,
             top_k=top_k,
             min_score=min_score
         )
+        timing_info["retrieval"] = retrieval_timing
 
         if not filtered_chunks:
-            return DoclingRagStructuredResponse(
-                response="The provided documents do not contain this information.",
-                sources=[]
+            timing_info["generation_total_ms"] = (time.perf_counter() - generation_start) * 1000
+            return {
+                "result": DoclingRagStructuredResponse(
+                    response="The provided documents do not contain this information.",
+                    sources=[]
+                ),
+                "timing": timing_info
+            }
+
+        # 2. Check response cache
+        if self.cache_service:
+            cache_start = time.perf_counter()
+            cached_response = await self.cache_service.get_response(
+                query_text,
+                document_id,
+                filtered_chunks
             )
-        
-        # 2. Format context with metadata tags
+            if cached_response:
+                timing_info["response_cache_hit"] = True
+                timing_info["generation_total_ms"] = (time.perf_counter() - generation_start) * 1000
+                logger.info(f"[TIMING] Response cache HIT: {timing_info['generation_total_ms']:.2f}ms")
+                return {
+                    "result": DoclingRagStructuredResponse(**cached_response),
+                    "timing": timing_info
+                }
+
+        # 3. Format context with metadata tags
+        format_start = time.perf_counter()
         formatted_context = "\n\n".join([self._format_context_docling(d) for d in filtered_chunks])
+        timing_info["context_format_ms"] = (time.perf_counter() - format_start) * 1000
 
-        # 3. Setup the Structured LLM
-        # We use your Pydantic model here to force the LLM to follow the schema
-        structured_chat_model = ChatOpenAI(
-            model=self.llm_model_name,
-            temperature=0.0
-        ).with_structured_output(DoclingRagStructuredResponse)
-
-        # 4. Define the Chain
+        # 4. Define the Chain using singleton LLM (avoids per-request instantiation)
         chat_prompt = ChatPromptTemplate.from_template(UNIFIED_PROMPT_TEMPLATE)
         chain = (
             {"context": RunnablePassthrough(), "question": RunnablePassthrough()}
             | chat_prompt
-            | structured_chat_model
+            | structured_llm
         )
 
-        # 5. Execute
-        # result will be an instance of DoclingRagStructuredResponse
+        # Log estimated token count (rough: 1 token ≈ 4 chars)
+        context_chars = len(formatted_context)
+        estimated_tokens = context_chars // 4
+        logger.info(f"[TIMING] Context size: {context_chars} chars (~{estimated_tokens} tokens)")
+
+        # 5. Execute LLM
+        llm_start = time.perf_counter()
         result = await chain.ainvoke({
             "context": formatted_context,
             "question": query_text
         })
-        
-        return result
+        timing_info["llm_call_ms"] = (time.perf_counter() - llm_start) * 1000
+        logger.info(f"[TIMING] LLM generation (GPT-4o-mini): {timing_info['llm_call_ms']:.2f}ms")
+
+        # 6. Cache response
+        if self.cache_service:
+            await self.cache_service.set_response(
+                query_text,
+                document_id,
+                filtered_chunks,
+                result.model_dump()
+            )
+
+        timing_info["generation_total_ms"] = (time.perf_counter() - generation_start) * 1000
+        logger.info(f"[TIMING] Generation total: {timing_info['generation_total_ms']:.2f}ms")
+
+        return {
+            "result": result,
+            "timing": timing_info
+        }

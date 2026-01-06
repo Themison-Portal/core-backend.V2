@@ -1,9 +1,10 @@
-from typing import List
+from typing import List, Optional, TYPE_CHECKING
 from uuid import UUID
 from datetime import datetime
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete
 from langchain_core.documents import Document
 from uuid import uuid4
 
@@ -15,18 +16,36 @@ from docling.chunking import HybridChunker
 from langchain_docling.loader import DoclingLoader, ExportType
 from app.services.utils.tokenizer import get_tokenizer
 
+if TYPE_CHECKING:
+    from app.services.cache.rag_cache_service import RagCacheService
+
+
 class RagIngestionService(IRagIngestionService):
     """
     Service for PDF ingestion and chunking using Docling + embeddings.
     """
 
-    def __init__(self, db: AsyncSession):
+    def __init__(
+        self,
+        db: AsyncSession,
+        cache_service: Optional["RagCacheService"] = None
+    ):
         self.db = db
         self.embedding_client = embedding_client
+        self.cache_service = cache_service
 
     # --------------------------
     # Private helper functions
     # --------------------------
+    async def _delete_existing_chunks(self, document_id: UUID) -> int:
+        """Delete existing chunks before re-ingestion."""
+        stmt = delete(DocumentChunkDocling).where(
+            DocumentChunkDocling.document_id == document_id
+        )
+        result = await self.db.execute(stmt)
+        await self.db.commit()
+        return result.rowcount
+
     def _extract_docling_citation_metadata(self, metadata_json):
         """
         Returns a dict with page_number and headings for a chunk.
@@ -97,12 +116,25 @@ class RagIngestionService(IRagIngestionService):
     ):
         """
         Complete ingestion pipeline for a PDF:
-        1. Load PDF via DoclingLoader
-        2. Chunk with HybridChunker
-        3. Generate embeddings
-        4. Insert into DB
+        1. Invalidate cache for document
+        2. Delete existing chunks (for re-ingestion)
+        3. Load PDF via DoclingLoader
+        4. Chunk with HybridChunker
+        5. Generate embeddings
+        6. Insert into DB
         """
         try:
+            # Invalidate cache before re-ingestion
+            if self.cache_service:
+                deleted_count = await self.cache_service.invalidate_document(document_id)
+                if deleted_count > 0:
+                    print(f"Invalidated {deleted_count} cached entries for document {document_id}")
+
+            # Delete existing chunks for re-ingestion
+            deleted_chunks = await self._delete_existing_chunks(document_id)
+            if deleted_chunks > 0:
+                print(f"Deleted {deleted_chunks} existing chunks for document {document_id}")
+
             tokenizer = get_tokenizer()
             loader = DoclingLoader(
                 file_path=document_url,
@@ -115,7 +147,7 @@ class RagIngestionService(IRagIngestionService):
             chunk_embeddings = await self.embedding_client.aembed_documents(texts)
             document_record = await self._insert_docling_chunks(document_id, docs, chunk_embeddings, user_id)
 
-            print("✅ PDF ingestion complete")
+            print("PDF ingestion complete")
             return document_record
 
         except Exception as e:

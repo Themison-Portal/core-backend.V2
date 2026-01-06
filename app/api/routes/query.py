@@ -2,7 +2,10 @@
 Query routes
 """
 
-import re, json
+import re
+import json
+import time
+import logging
 from typing import List, Optional
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Response, Query
@@ -20,8 +23,11 @@ from app.services.doclingRag.rag_generation_service import RagGenerationService
 from app.services.doclingRag.rag_retrieval_service import RagRetrievalService
 from app.services.highlighting.interfaces.pdf_highlight_service import IPDFHightlightService
 from app.services.highlighting.pdf_highlight_service import PDFHighlightService
+from app.services.cache.rag_cache_service import RagCacheService
 from app.dependencies.redis_client import get_redis_client
+from app.dependencies.cache import get_rag_cache_service
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -66,10 +72,12 @@ class QueryRequest(BaseModel):
 async def process_query(
     request: QueryRequest,
     db: AsyncSession = Depends(get_db),
+    cache_service: RagCacheService = Depends(get_rag_cache_service),
 ):
     """
     Main RAG endpoint: runs retrieval + generation.
     """
+    total_start = time.perf_counter()
 
     if not request.document_ids:
         raise HTTPException(
@@ -80,22 +88,46 @@ async def process_query(
     document_id = request.document_ids[0]
     query = request.message
 
-    print(f"Received query for document_id: {document_id}")
+    logger.info(f"[TIMING] ========== QUERY START ==========")
+    logger.info(f"[TIMING] Document ID: {document_id}")
+    logger.info(f"[TIMING] Query: {query[:100]}{'...' if len(query) > 100 else ''}")
 
+    # Service initialization
+    init_start = time.perf_counter()
     retrieval_service = RagRetrievalService(
         db=db,
         embedding_client=embedding_client,
+        cache_service=cache_service,
     )
     generation_service = RagGenerationService(
         retrieval_service=retrieval_service,
+        cache_service=cache_service,
     )
+    init_time = (time.perf_counter() - init_start) * 1000
+    logger.info(f"[TIMING] Service initialization: {init_time:.2f}ms")
 
-    result = await generation_service.generate_answer(
+    # Generate answer (includes retrieval + LLM)
+    response = await generation_service.generate_answer(
         query,
         document_id,
     )
-    print(f"Generated response: {result}")
-    return result
+
+    total_time = (time.perf_counter() - total_start) * 1000
+
+    # Log comprehensive timing summary
+    timing = response.get("timing", {})
+    retrieval = timing.get("retrieval", {})
+
+    logger.info(f"[TIMING] ========== TIMING SUMMARY ==========")
+    logger.info(f"[TIMING] Embedding: {retrieval.get('embedding_ms', 0):.2f}ms (cache_hit: {retrieval.get('cache_hit', False)})")
+    logger.info(f"[TIMING] Vector search: {retrieval.get('db_search_ms', 0):.2f}ms")
+    logger.info(f"[TIMING] Retrieval total: {retrieval.get('retrieval_total_ms', 0):.2f}ms (chunk_cache_hit: {retrieval.get('chunk_cache_hit', False)})")
+    logger.info(f"[TIMING] Context format: {timing.get('context_format_ms', 0):.2f}ms")
+    logger.info(f"[TIMING] LLM call: {timing.get('llm_call_ms', 0):.2f}ms")
+    logger.info(f"[TIMING] Generation total: {timing.get('generation_total_ms', 0):.2f}ms (response_cache_hit: {timing.get('response_cache_hit', False)})")
+    logger.info(f"[TIMING] ========== TOTAL: {total_time:.2f}ms ==========")
+
+    return response.get("result")
 
 
 def get_pdf_highlight_service(

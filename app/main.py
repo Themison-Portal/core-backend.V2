@@ -4,7 +4,7 @@ Main application file
 
 import os
 import sys
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -18,7 +18,9 @@ from contextlib import asynccontextmanager
 from redis.asyncio import Redis
 import logging
 
-# load_dotenv()
+# Load environment variables from .env file
+load_dotenv()
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Application state for storing loaded models

@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_service_key: str
     openai_api_key: str
-    anthropic_api_key: str
+    anthropic_api_key: str = ""  # Optional - not used when using OpenAI only
     supabase_db_url: str
     supabase_anon_key: str = ""  # Optional
     supabase_db_password: str = ""  # Optional
@@ -25,9 +25,9 @@ class Settings(BaseSettings):
         """
         Configuration for the application settings
         """
-
-        # env_file = ".env" # Uncomment if working locally with a .env file
-        env_file = None # Use system environment variables in production
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        extra = "ignore"
 
 @lru_cache()
 def get_settings() -> Settings:
