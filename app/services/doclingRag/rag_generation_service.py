@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
 from uuid import UUID
-from openai import AsyncOpenAI
+from anthropic import AsyncAnthropic
 
 from app.services.doclingRag.interfaces.rag_generation_service import IRagGenerationService
 from app.services.doclingRag.rag_retrieval_service import RagRetrievalService
@@ -17,8 +17,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-# Initialize async OpenAI client for predicted outputs
-_openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+# Initialize async Anthropic client for Claude Opus 4.5
+_anthropic_client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
 # -----------------------------------
 # Prompt template - Optimized for prompt caching
@@ -34,10 +34,6 @@ RULES:
 
 RESPOND WITH THIS EXACT JSON STRUCTURE (no other text):
 {"response": "markdown answer with citations", "sources": [{"name": "doc title", "page": 1, "section": "section or null", "exactText": "verbatim quote", "bboxes": [[x0,y0,x1,y1]], "relevance": "high"}]}"""
-
-# Prediction template for OpenAI predicted outputs feature
-# This helps OpenAI generate structured output faster
-PREDICTION_TEMPLATE = '{"response": "'
 
 # -----------------------------------
 # Service
@@ -222,29 +218,26 @@ class RagGenerationService(IRagGenerationService):
         estimated_tokens = context_chars // 4
         logger.info(f"[TIMING] Context: {context_chars} chars (~{estimated_tokens} tokens), {len(compressed_chunks)} chunks")
 
-        # 5. Call OpenAI with predicted outputs for faster structured generation
+        # 5. Call Claude Opus 4.5 for generation
         llm_start = time.perf_counter()
 
         user_message = f"CONTEXT:\n{formatted_context}\n\nQUESTION: {query_text}"
 
         try:
-            response = await _openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                temperature=0.0,
+            response = await _anthropic_client.messages.create(
+                model="claude-opus-4-5-20251101",
                 max_tokens=2000,
+                system=SYSTEM_PROMPT,
                 messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_message},
                 ],
-                # Use JSON mode for reliable structured output
-                response_format={"type": "json_object"},
             )
 
             timing_info["llm_call_ms"] = (time.perf_counter() - llm_start) * 1000
-            logger.info(f"[TIMING] LLM (GPT-4o-mini + JSON mode): {timing_info['llm_call_ms']:.2f}ms")
+            logger.info(f"[TIMING] LLM (Claude Opus 4.5): {timing_info['llm_call_ms']:.2f}ms")
 
-            # Parse response
-            raw_content = response.choices[0].message.content
+            # Parse response - Claude returns content as a list of blocks
+            raw_content = response.content[0].text
             logger.debug(f"[DEBUG] Raw LLM response: {raw_content[:500]}...")
 
             # Try to extract JSON from response (handle cases where model adds extra text)
@@ -281,7 +274,7 @@ class RagGenerationService(IRagGenerationService):
             )
 
         except Exception as e:
-            logger.error(f"[ERROR] OpenAI call failed: {e}")
+            logger.error(f"[ERROR] Claude API call failed: {e}")
             # Fallback: return error response
             timing_info["llm_call_ms"] = (time.perf_counter() - llm_start) * 1000
             timing_info["error"] = str(e)

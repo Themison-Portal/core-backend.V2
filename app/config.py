@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_service_key: str
     openai_api_key: str
-    anthropic_api_key: str = ""  # Optional - not used when using OpenAI only
+    anthropic_api_key: str  # Required for Claude Opus 4.5
     supabase_db_url: str
     supabase_anon_key: str = ""  # Optional
     supabase_db_password: str = ""  # Optional
