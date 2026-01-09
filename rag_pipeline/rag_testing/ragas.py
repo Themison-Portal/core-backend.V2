@@ -125,41 +125,6 @@ class TestPipeline:
         
         return list(answers), list(contexts)
 
-
-    # async def __process_batch(self, model, embedding):
-    #     """
-    #         Sequentially executes rag queries using specific model and embedding
-    #     """
-    #     answers = []
-    #     contexts = []
-    #     queries = self.test_set["user_input"].tolist()
-    #     for query in tqdm(queries):
-    #         try:
-    #             if model == ModelName.GPT_4o:
-    #                 if embedding == EmbeddName.BIOBERT:
-    #                     result = await rag_query_biobert(query)
-    #                 # elif embedding == EmbeddName.OPENAI:
-    #                 #     result = await rag_query(query)
-    #                 else:
-    #                     raise Exception("Incorrect embedding type")
-                    
-    #             else:
-    #                 raise Exception("Incorrect model")
-                
-    #             answer = result.get("response", "")
-    #             raw_sources = result.get("sources", [])
-    #             # extract sources context from the sources object
-    #             context_strings = [s.context for s in raw_sources if hasattr(s, 'context')]
-                
-    #             answers.append(answer)
-    #             contexts.append(context_strings)
-                
-    #         except Exception as e:
-    #             print(f"Error processing query '{query}': {e}")
-    #             answers.append("Error producing answer")
-    #             contexts.append(["No context due to error"]) 
-
-    #     return answers, contexts
     
     async def evaluate_rag(self):
         """

@@ -16,3 +16,7 @@ In order to run ragas testing on the root of the project run:
 ```
 python3 -m rag_pipeline.rag_testing.ragas
 ```
+In order to run deepevel evaluation on the root run:
+```
+python3 -m rag_pipeline.rag_testing_deepeval.deepeval
+```
