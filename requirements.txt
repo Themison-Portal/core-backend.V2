@@ -8,7 +8,7 @@ numpy
 huggingface-hub
 sentence-transformers
 transformers
-openai
+openai>=1.54.0  # Required for predicted outputs feature
 vecs
 torch
 langchain_huggingface

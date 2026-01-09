@@ -122,6 +122,8 @@ async def process_query(
     logger.info(f"[TIMING] Embedding: {retrieval.get('embedding_ms', 0):.2f}ms (cache_hit: {retrieval.get('cache_hit', False)})")
     logger.info(f"[TIMING] Vector search: {retrieval.get('db_search_ms', 0):.2f}ms")
     logger.info(f"[TIMING] Retrieval total: {retrieval.get('retrieval_total_ms', 0):.2f}ms (chunk_cache_hit: {retrieval.get('chunk_cache_hit', False)})")
+    logger.info(f"[TIMING] Chunks: {timing.get('original_chunk_count', 0)} → {timing.get('compressed_chunk_count', 0)} (compressed: {timing.get('chunks_compressed', False)})")
+    logger.info(f"[TIMING] Compression: {timing.get('compression_ms', 0):.2f}ms")
     logger.info(f"[TIMING] Context format: {timing.get('context_format_ms', 0):.2f}ms")
     logger.info(f"[TIMING] LLM call: {timing.get('llm_call_ms', 0):.2f}ms")
     logger.info(f"[TIMING] Generation total: {timing.get('generation_total_ms', 0):.2f}ms (response_cache_hit: {timing.get('response_cache_hit', False)})")
