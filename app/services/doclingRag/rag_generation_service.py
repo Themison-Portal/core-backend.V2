@@ -13,6 +13,7 @@ from app.config import get_settings
 
 if TYPE_CHECKING:
     from app.services.cache.rag_cache_service import RagCacheService
+    from app.services.cache.semantic_cache_service import SemanticCacheService
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -47,10 +48,12 @@ class RagGenerationService(IRagGenerationService):
     def __init__(
         self,
         retrieval_service: RagRetrievalService,
-        cache_service: Optional["RagCacheService"] = None
+        cache_service: Optional["RagCacheService"] = None,
+        semantic_cache_service: Optional["SemanticCacheService"] = None
     ):
         self.retrieval_service = retrieval_service
         self.cache_service = cache_service
+        self.semantic_cache_service = semantic_cache_service
 
     def _extract_chunk_metadata(self, doc: dict) -> dict:
         """Extract metadata from a chunk for compression and formatting."""
@@ -145,6 +148,85 @@ class RagGenerationService(IRagGenerationService):
         meta = self._extract_chunk_metadata(doc)
         return self._format_context_compact(meta)
 
+    def _repair_json(self, json_str: str) -> str:
+        """
+        Attempt to repair common JSON formatting issues from LLM responses.
+        """
+        repaired = json_str
+
+        # Fix unescaped newlines in strings
+        repaired = re.sub(r'(?<!\\)\n(?=(?:[^"]*"[^"]*")*[^"]*"[^"]*$)', '\\n', repaired)
+
+        # Fix unescaped quotes inside strings (tricky - be conservative)
+        # Look for patterns like ..."text with "quotes" inside"...
+
+        # Fix trailing commas before closing brackets
+        repaired = re.sub(r',(\s*[}\]])', r'\1', repaired)
+
+        # Fix missing commas between array elements or object properties
+        # Pattern: }" or ]" followed by a new property/element
+        repaired = re.sub(r'(\})\s*(")', r'\1,\2', repaired)
+        repaired = re.sub(r'(\])\s*(")', r'\1,\2', repaired)
+
+        # Fix missing commas after string values
+        repaired = re.sub(r'(")\s+(")', r'\1,\2', repaired)
+
+        # Remove any control characters except \n, \r, \t
+        repaired = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', repaired)
+
+        return repaired
+
+    def _parse_llm_json(self, raw_content: str) -> dict:
+        """
+        Parse JSON from LLM response with multiple fallback strategies.
+        Always returns a valid dict, never raises.
+        """
+        # Strategy 1: Direct parse
+        try:
+            return json.loads(raw_content)
+        except json.JSONDecodeError as e:
+            logger.warning(f"[JSON] Direct parse failed: {e}")
+
+        # Strategy 2: Extract JSON with regex
+        json_match = re.search(r'\{[\s\S]*\}', raw_content)
+        if json_match:
+            json_str = json_match.group()
+            try:
+                return json.loads(json_str)
+            except json.JSONDecodeError as e:
+                logger.warning(f"[JSON] Regex extract failed: {e}")
+
+            # Strategy 3: Repair and parse
+            try:
+                repaired = self._repair_json(json_str)
+                result = json.loads(repaired)
+                logger.info("[JSON] Repair successful")
+                return result
+            except json.JSONDecodeError as e:
+                logger.warning(f"[JSON] Repair failed: {e}")
+
+        # Strategy 4: Try to extract just the response field
+        response_match = re.search(r'"response"\s*:\s*"((?:[^"\\]|\\.)*)"\s*[,}]', raw_content)
+        if response_match:
+            logger.info("[JSON] Extracted response field only")
+            return {
+                "response": response_match.group(1).replace('\\"', '"').replace('\\n', '\n'),
+                "sources": []
+            }
+
+        # Strategy 5: Return raw content as response (last resort)
+        logger.warning("[JSON] All parsing strategies failed, returning raw content")
+        # Clean up the content - remove JSON artifacts
+        clean_content = raw_content
+        clean_content = re.sub(r'^\s*\{?\s*"response"\s*:\s*"?', '', clean_content)
+        clean_content = re.sub(r'"?\s*,?\s*"sources"\s*:.*$', '', clean_content, flags=re.DOTALL)
+        clean_content = clean_content.strip().strip('"').strip()
+
+        return {
+            "response": clean_content[:3000] if clean_content else "Unable to parse response from AI.",
+            "sources": []
+        }
+
     async def generate_answer(
         self,
         query_text: str,
@@ -154,21 +236,58 @@ class RagGenerationService(IRagGenerationService):
     ) -> dict:
         """
         Generate answer with timing information.
-        Optimized with: prompt caching, chunk compression, predicted outputs.
+        Optimized with: prompt caching, chunk compression, predicted outputs, semantic caching.
+
+        Cache hierarchy:
+        1. Semantic cache (similarity >= 0.90, fastest for similar queries)
+        2. Redis response cache (exact match)
+        3. Claude API call (slowest)
+
         Returns dict with 'result' (DoclingRagStructuredResponse) and 'timing' info.
         """
         generation_start = time.perf_counter()
         timing_info = {
             "response_cache_hit": False,
+            "semantic_cache_hit": False,
             "chunks_compressed": False,
         }
 
-        # 1. Retrieve chunks
+        # 1. Get query embedding first (needed for semantic cache)
+        query_embedding, embed_timing = await self.retrieval_service.get_query_embedding(query_text)
+        timing_info["embedding_ms"] = embed_timing.get("embedding_ms", 0)
+        timing_info["embedding_cache_hit"] = embed_timing.get("cache_hit", False)
+
+        # 2. Check semantic cache FIRST (before retrieval)
+        if self.semantic_cache_service:
+            semantic_start = time.perf_counter()
+            cached = await self.semantic_cache_service.get_similar_response(
+                query_embedding=query_embedding,
+                document_id=document_id
+            )
+            timing_info["semantic_cache_search_ms"] = (time.perf_counter() - semantic_start) * 1000
+
+            if cached:
+                timing_info["semantic_cache_hit"] = True
+                timing_info["semantic_cache_similarity"] = cached["similarity"]
+                timing_info["generation_total_ms"] = (time.perf_counter() - generation_start) * 1000
+
+                logger.info(
+                    f"[TIMING] Semantic cache HIT: similarity={cached['similarity']:.4f}, "
+                    f"total={timing_info['generation_total_ms']:.2f}ms"
+                )
+
+                return {
+                    "result": DoclingRagStructuredResponse(**cached["response"]),
+                    "timing": timing_info
+                }
+
+        # 3. Retrieve chunks (using precomputed embedding to avoid double computation)
         filtered_chunks, retrieval_timing = await self.retrieval_service.retrieve_similar_chunks(
             query_text=query_text,
             document_id=document_id,
             top_k=top_k,
-            min_score=min_score
+            min_score=min_score,
+            precomputed_embedding=query_embedding
         )
         timing_info["retrieval"] = retrieval_timing
         timing_info["original_chunk_count"] = len(filtered_chunks)
@@ -183,7 +302,7 @@ class RagGenerationService(IRagGenerationService):
                 "timing": timing_info
             }
 
-        # 2. Check response cache
+        # 2. Check response cache (Redis exact match)
         if self.cache_service:
             cached_response = await self.cache_service.get_response(
                 query_text,
@@ -193,7 +312,7 @@ class RagGenerationService(IRagGenerationService):
             if cached_response:
                 timing_info["response_cache_hit"] = True
                 timing_info["generation_total_ms"] = (time.perf_counter() - generation_start) * 1000
-                logger.info(f"[TIMING] Response cache HIT: {timing_info['generation_total_ms']:.2f}ms")
+                logger.info(f"[CACHE] Response [HIT] - Exact match found in Redis! Total: {timing_info['generation_total_ms']:.2f}ms (SAVED ~15s LLM call!)")
                 return {
                     "result": DoclingRagStructuredResponse(**cached_response),
                     "timing": timing_info
@@ -234,22 +353,14 @@ class RagGenerationService(IRagGenerationService):
             )
 
             timing_info["llm_call_ms"] = (time.perf_counter() - llm_start) * 1000
-            logger.info(f"[TIMING] LLM (Claude Opus 4.5): {timing_info['llm_call_ms']:.2f}ms")
+            logger.info(f"[CACHE] LLM [CALL] - Claude Opus 4.5 responded in {timing_info['llm_call_ms']:.2f}ms (no cache available)")
 
             # Parse response - Claude returns content as a list of blocks
             raw_content = response.content[0].text
             logger.debug(f"[DEBUG] Raw LLM response: {raw_content[:500]}...")
 
             # Try to extract JSON from response (handle cases where model adds extra text)
-            try:
-                parsed = json.loads(raw_content)
-            except json.JSONDecodeError:
-                # Try to find JSON object in response
-                json_match = re.search(r'\{[\s\S]*\}', raw_content)
-                if json_match:
-                    parsed = json.loads(json_match.group())
-                else:
-                    raise ValueError(f"Could not parse JSON from response: {raw_content[:200]}")
+            parsed = self._parse_llm_json(raw_content)
 
             # Convert to Pydantic model
             sources = []
@@ -286,7 +397,7 @@ class RagGenerationService(IRagGenerationService):
                 "timing": timing_info
             }
 
-        # 6. Cache response
+        # 6. Cache response in Redis (exact match cache)
         if self.cache_service:
             await self.cache_service.set_response(
                 query_text,
@@ -294,9 +405,22 @@ class RagGenerationService(IRagGenerationService):
                 filtered_chunks,
                 result.model_dump()
             )
+            logger.info(f"[CACHE] Response [STORE] - Saved to Redis for exact match (TTL: 30m)")
+
+        # 7. Store in semantic cache (similarity-based cache)
+        if self.semantic_cache_service:
+            from app.services.cache.semantic_cache_service import SemanticCacheService
+            context_hash = SemanticCacheService.hash_context(filtered_chunks)
+            await self.semantic_cache_service.store_response(
+                query_text=query_text,
+                query_embedding=query_embedding,
+                document_id=document_id,
+                response=result.model_dump(),
+                context_hash=context_hash
+            )
 
         timing_info["generation_total_ms"] = (time.perf_counter() - generation_start) * 1000
-        logger.info(f"[TIMING] Generation total: {timing_info['generation_total_ms']:.2f}ms")
+        logger.info(f"[CACHE] === Generation Complete: {timing_info['generation_total_ms']:.2f}ms ===")
 
         return {
             "result": result,

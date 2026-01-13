@@ -5,3 +5,4 @@ from .chat_sessions import ChatSession
 # from .chunks import DocumentChunk
 from .documents import Document
 from .chunks_docling import DocumentChunkDocling
+from .semantic_cache import SemanticCacheResponse

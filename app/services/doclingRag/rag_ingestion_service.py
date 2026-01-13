@@ -18,6 +18,7 @@ from app.services.utils.tokenizer import get_tokenizer
 
 if TYPE_CHECKING:
     from app.services.cache.rag_cache_service import RagCacheService
+    from app.services.cache.semantic_cache_service import SemanticCacheService
 
 
 class RagIngestionService(IRagIngestionService):
@@ -28,11 +29,13 @@ class RagIngestionService(IRagIngestionService):
     def __init__(
         self,
         db: AsyncSession,
-        cache_service: Optional["RagCacheService"] = None
+        cache_service: Optional["RagCacheService"] = None,
+        semantic_cache_service: Optional["SemanticCacheService"] = None
     ):
         self.db = db
         self.embedding_client = embedding_client
         self.cache_service = cache_service
+        self.semantic_cache_service = semantic_cache_service
 
     # --------------------------
     # Private helper functions
@@ -124,11 +127,17 @@ class RagIngestionService(IRagIngestionService):
         6. Insert into DB
         """
         try:
-            # Invalidate cache before re-ingestion
+            # Invalidate Redis cache before re-ingestion
             if self.cache_service:
                 deleted_count = await self.cache_service.invalidate_document(document_id)
                 if deleted_count > 0:
-                    print(f"Invalidated {deleted_count} cached entries for document {document_id}")
+                    print(f"Invalidated {deleted_count} Redis cached entries for document {document_id}")
+
+            # Invalidate semantic cache before re-ingestion
+            if self.semantic_cache_service:
+                deleted_semantic = await self.semantic_cache_service.invalidate_document(document_id)
+                if deleted_semantic > 0:
+                    print(f"Invalidated {deleted_semantic} semantic cache entries for document {document_id}")
 
             # Delete existing chunks for re-ingestion
             deleted_chunks = await self._delete_existing_chunks(document_id)

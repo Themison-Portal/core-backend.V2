@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     redis_url: str = ""
     frontend_url: str = "http://localhost:3000"  # Optional with default
 
+    # Semantic cache configuration
+    semantic_cache_similarity_threshold: float = 0.90  # Cosine similarity threshold for cache hits
+
     class Config:
         """
         Configuration for the application settings
