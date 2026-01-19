@@ -38,3 +38,6 @@ redis
 Jinja2
 docling
 
+# --- Reranking packages ---
+cohere>=5.0.0
+

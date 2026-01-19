@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional, TYPE_CHECKING
 from uuid import UUID
 from datetime import datetime
@@ -12,6 +13,7 @@ from app.models.documents import Document as DocumentTable
 from app.models.chunks_docling import DocumentChunkDocling
 from app.services.doclingRag.interfaces.rag_ingestion_service import IRagIngestionService
 from app.core.openai import embedding_client
+from app.config import get_settings
 from docling.chunking import HybridChunker
 from langchain_docling.loader import DoclingLoader, ExportType
 from app.services.utils.tokenizer import get_tokenizer
@@ -19,6 +21,10 @@ from app.services.utils.tokenizer import get_tokenizer
 if TYPE_CHECKING:
     from app.services.cache.rag_cache_service import RagCacheService
     from app.services.cache.semantic_cache_service import SemanticCacheService
+    from app.services.contextual.contextual_service import ContextualService
+
+logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 class RagIngestionService(IRagIngestionService):
@@ -30,12 +36,21 @@ class RagIngestionService(IRagIngestionService):
         self,
         db: AsyncSession,
         cache_service: Optional["RagCacheService"] = None,
-        semantic_cache_service: Optional["SemanticCacheService"] = None
+        semantic_cache_service: Optional["SemanticCacheService"] = None,
+        contextual_service: Optional["ContextualService"] = None
     ):
         self.db = db
         self.embedding_client = embedding_client
         self.cache_service = cache_service
         self.semantic_cache_service = semantic_cache_service
+        # Initialize contextual service if enabled
+        if contextual_service is not None:
+            self.contextual_service = contextual_service
+        elif settings.contextual_retrieval_enabled:
+            from app.services.contextual.contextual_service import ContextualService
+            self.contextual_service = ContextualService()
+        else:
+            self.contextual_service = None
 
     # --------------------------
     # Private helper functions
@@ -75,9 +90,13 @@ class RagIngestionService(IRagIngestionService):
         chunks: List[Document],
         embeddings: List[List[float]],
         user_id: UUID = None,
+        contextual_summaries: Optional[List[str]] = None,
     ):
         """
         Private helper to insert Docling chunks into DB.
+
+        Args:
+            contextual_summaries: Optional list of contextual summaries for each chunk
         """
         await self.ensure_tables_exist()  # Make sure table exists
 
@@ -88,6 +107,12 @@ class RagIngestionService(IRagIngestionService):
 
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
                 citation_meta = self._extract_docling_citation_metadata(chunk.metadata)
+
+                # Get contextual summary if available
+                contextual_summary = None
+                if contextual_summaries and i < len(contextual_summaries):
+                    contextual_summary = contextual_summaries[i]
+
                 chunk_record = DocumentChunkDocling(
                     id=uuid4(),
                     document_id=document.id,
@@ -95,12 +120,12 @@ class RagIngestionService(IRagIngestionService):
                     page_number=citation_meta["page_number"],
                     chunk_metadata={**chunk.metadata, "chunk_index": i},
                     embedding=embedding,
+                    contextual_summary=contextual_summary,
                     created_at=datetime.now(),
                 )
                 self.db.add(chunk_record)
 
             await self.db.commit()
-
             return document
 
         except Exception as e:
@@ -153,10 +178,29 @@ class RagIngestionService(IRagIngestionService):
             docs = loader.load()  # list of Document objects
             texts = [doc.page_content for doc in docs]
 
-            chunk_embeddings = await self.embedding_client.aembed_documents(texts)
-            document_record = await self._insert_docling_chunks(document_id, docs, chunk_embeddings, user_id)
+            # Optional: Generate contextual summaries if enabled
+            contextual_summaries = None
+            if self.contextual_service:
+                logger.info(f"Generating contextual summaries for {len(texts)} chunks...")
+                context_results = await self.contextual_service.process_chunks_with_context(texts)
 
-            print("PDF ingestion complete")
+                # Extract summaries and use contextualized text for embeddings
+                contextual_summaries = [r["summary"] for r in context_results]
+                contextualized_texts = [r["contextualized"] for r in context_results]
+
+                logger.info(f"Generated {len(contextual_summaries)} contextual summaries")
+
+                # Embed the contextualized content (includes summary + original)
+                chunk_embeddings = await self.embedding_client.aembed_documents(contextualized_texts)
+            else:
+                # Standard embedding without contextual enhancement
+                chunk_embeddings = await self.embedding_client.aembed_documents(texts)
+
+            document_record = await self._insert_docling_chunks(
+                document_id, docs, chunk_embeddings, user_id, contextual_summaries
+            )
+
+            logger.info("PDF ingestion complete")
             return document_record
 
         except Exception as e:

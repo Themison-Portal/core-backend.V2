@@ -1,6 +1,7 @@
+import asyncio
 import time
 import logging
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, Optional, Dict, TYPE_CHECKING
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -8,11 +9,13 @@ from langchain_core.documents import Document
 
 from app.services.doclingRag.interfaces.rag_retrieval_service import IRagRetrievalService
 from app.services.utils.threading import run_in_thread  # your helper for async threading
+from app.config import get_settings
 
 if TYPE_CHECKING:
     from app.services.cache.rag_cache_service import RagCacheService
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 
 class RagRetrievalService(IRagRetrievalService):
@@ -115,9 +118,8 @@ class RagRetrievalService(IRagRetrievalService):
         """)
 
         db_start = time.perf_counter()
-        async with self.db.begin():
-            result = await self.db.execute(sql, {"v": query_vector, "k": top_k, "pid": document_id})
-            rows = result.fetchall()
+        result = await self.db.execute(sql, {"v": query_vector, "k": top_k, "pid": document_id})
+        rows = result.fetchall()
         timing_info["db_search_ms"] = (time.perf_counter() - db_start) * 1000
         logger.info(f"[TIMING] Vector search (pgvector HNSW): {timing_info['db_search_ms']:.2f}ms, found {len(rows)} chunks")
 
@@ -135,7 +137,159 @@ class RagRetrievalService(IRagRetrievalService):
             for row in rows
         ]
 
-        return docs, timing_info    
+        return docs, timing_info
+
+    async def _search_bm25(
+        self,
+        query_text: str,
+        document_id: UUID,
+        top_k: int = 20
+    ) -> List[dict]:
+        """
+        Full-text BM25 search using PostgreSQL tsvector.
+        Returns chunks ranked by text relevance.
+        """
+        sql = text("""
+            SELECT
+                pc.id,
+                pc.content,
+                pc.page_number,
+                pc.chunk_metadata,
+                p.document_name,
+                ts_rank(pc.content_tsv, plainto_tsquery('english', :query)) AS bm25_score
+            FROM document_chunks_docling pc
+            JOIN trial_documents p ON pc.document_id = p.id
+            WHERE pc.document_id = :pid
+              AND pc.content_tsv @@ plainto_tsquery('english', :query)
+            ORDER BY bm25_score DESC
+            LIMIT :k
+        """)
+
+        db_start = time.perf_counter()
+        result = await self.db.execute(sql, {"query": query_text, "k": top_k, "pid": document_id})
+        rows = result.fetchall()
+        bm25_time = (time.perf_counter() - db_start) * 1000
+        logger.info(f"[TIMING] BM25 search (PostgreSQL GIN): {bm25_time:.2f}ms, found {len(rows)} chunks")
+
+        # Format results with unique IDs for RRF fusion
+        docs = [
+            {
+                "id": str(row.id),
+                "page_content": row.content,
+                "score": float(row.bm25_score),
+                "metadata": {
+                    "title": row.document_name,
+                    "page": row.page_number,
+                    "docling": row.chunk_metadata,
+                },
+            }
+            for row in rows
+        ]
+        return docs
+
+    def _reciprocal_rank_fusion(
+        self,
+        vector_results: List[dict],
+        bm25_results: List[dict],
+        k: int = 60
+    ) -> List[dict]:
+        """
+        Combine vector and BM25 results using Reciprocal Rank Fusion (RRF).
+        RRF score = sum(1 / (k + rank)) for each result list.
+
+        Args:
+            vector_results: Results from vector similarity search
+            bm25_results: Results from BM25 full-text search
+            k: RRF constant (typically 60)
+
+        Returns:
+            Merged and re-ranked results
+        """
+        # Build a map of doc_id -> document data
+        doc_map: Dict[str, dict] = {}
+        rrf_scores: Dict[str, float] = {}
+
+        # Process vector results
+        for rank, doc in enumerate(vector_results):
+            # Use content hash as ID if id not present
+            doc_id = doc.get("id") or hash(doc["page_content"])
+            doc_id = str(doc_id)
+
+            if doc_id not in doc_map:
+                doc_map[doc_id] = doc.copy()
+                doc_map[doc_id]["vector_rank"] = rank + 1
+                doc_map[doc_id]["vector_score"] = doc.get("score", 0)
+
+            rrf_scores[doc_id] = rrf_scores.get(doc_id, 0) + 1.0 / (k + rank + 1)
+
+        # Process BM25 results
+        for rank, doc in enumerate(bm25_results):
+            doc_id = doc.get("id") or hash(doc["page_content"])
+            doc_id = str(doc_id)
+
+            if doc_id not in doc_map:
+                doc_map[doc_id] = doc.copy()
+
+            doc_map[doc_id]["bm25_rank"] = rank + 1
+            doc_map[doc_id]["bm25_score"] = doc.get("score", 0)
+            rrf_scores[doc_id] = rrf_scores.get(doc_id, 0) + 1.0 / (k + rank + 1)
+
+        # Sort by RRF score
+        sorted_ids = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)
+
+        # Build final results with RRF scores
+        fused_results = []
+        for doc_id in sorted_ids:
+            doc = doc_map[doc_id]
+            doc["score"] = rrf_scores[doc_id]  # Use RRF score as final score
+            doc["rrf_score"] = rrf_scores[doc_id]
+            fused_results.append(doc)
+
+        logger.info(f"[HYBRID] RRF fusion: {len(vector_results)} vector + {len(bm25_results)} BM25 -> {len(fused_results)} merged")
+        return fused_results
+
+    async def _search_hybrid(
+        self,
+        query_text: str,
+        document_id: UUID,
+        top_k: int = 20,
+        precomputed_embedding: Optional[List[float]] = None,
+    ) -> tuple[List[dict], dict]:
+        """
+        Hybrid search combining vector similarity and BM25 full-text search.
+        Runs both searches in parallel and fuses results with RRF.
+        """
+        timing_info = {"hybrid_search": True}
+
+        # Run both searches in parallel
+        hybrid_start = time.perf_counter()
+
+        vector_task = self._search_similar_chunks_docling(
+            query_text, document_id, top_k, precomputed_embedding
+        )
+        bm25_task = self._search_bm25(query_text, document_id, top_k)
+
+        (vector_results, vector_timing), bm25_results = await asyncio.gather(
+            vector_task, bm25_task
+        )
+
+        timing_info.update(vector_timing)
+        timing_info["hybrid_parallel_ms"] = (time.perf_counter() - hybrid_start) * 1000
+
+        # Fuse results using RRF
+        rrf_k = settings.hybrid_search_rrf_k
+        fused_results = self._reciprocal_rank_fusion(vector_results, bm25_results, k=rrf_k)
+
+        timing_info["vector_count"] = len(vector_results)
+        timing_info["bm25_count"] = len(bm25_results)
+        timing_info["fused_count"] = len(fused_results)
+
+        logger.info(
+            f"[HYBRID] Search complete: vector={len(vector_results)}, "
+            f"bm25={len(bm25_results)}, fused={len(fused_results)} in {timing_info['hybrid_parallel_ms']:.2f}ms"
+        )
+
+        return fused_results[:top_k], timing_info
 
     # --------------------------
     # Public interface
@@ -171,9 +325,15 @@ class RagRetrievalService(IRagRetrievalService):
                 logger.info(f"[CACHE] Chunks [HIT] - Retrieved {len(cached_chunks)} chunks from Redis in {timing_info['retrieval_total_ms']:.2f}ms (saved ~500ms pgvector search)")
                 return cached_chunks, timing_info
 
-        raw_chunks, search_timing = await self._search_similar_chunks_docling(
-            query_text, document_id, top_k, precomputed_embedding
-        )
+        # Use hybrid search if enabled, otherwise vector-only
+        if settings.hybrid_search_enabled:
+            raw_chunks, search_timing = await self._search_hybrid(
+                query_text, document_id, top_k, precomputed_embedding
+            )
+        else:
+            raw_chunks, search_timing = await self._search_similar_chunks_docling(
+                query_text, document_id, top_k, precomputed_embedding
+            )
         timing_info.update(search_timing)
 
         # Filter by relevance

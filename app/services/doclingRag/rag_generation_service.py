@@ -14,6 +14,7 @@ from app.config import get_settings
 if TYPE_CHECKING:
     from app.services.cache.rag_cache_service import RagCacheService
     from app.services.cache.semantic_cache_service import SemanticCacheService
+    from app.services.reranking.reranker_service import IReranker
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -49,11 +50,20 @@ class RagGenerationService(IRagGenerationService):
         self,
         retrieval_service: RagRetrievalService,
         cache_service: Optional["RagCacheService"] = None,
-        semantic_cache_service: Optional["SemanticCacheService"] = None
+        semantic_cache_service: Optional["SemanticCacheService"] = None,
+        reranker: Optional["IReranker"] = None
     ):
         self.retrieval_service = retrieval_service
         self.cache_service = cache_service
         self.semantic_cache_service = semantic_cache_service
+        # Initialize reranker if not provided and enabled in settings
+        if reranker is not None:
+            self.reranker = reranker
+        elif settings.reranker_enabled:
+            from app.services.reranking.reranker_service import get_reranker
+            self.reranker = get_reranker()
+        else:
+            self.reranker = None
 
     def _extract_chunk_metadata(self, doc: dict) -> dict:
         """Extract metadata from a chunk for compression and formatting."""
@@ -302,7 +312,25 @@ class RagGenerationService(IRagGenerationService):
                 "timing": timing_info
             }
 
-        # 2. Check response cache (Redis exact match)
+        # 3a. Rerank chunks if reranker is enabled
+        timing_info["reranker_enabled"] = self.reranker is not None
+        if self.reranker:
+            rerank_start = time.perf_counter()
+            reranked_chunks = await self.reranker.rerank(
+                query=query_text,
+                documents=filtered_chunks,
+                top_k=settings.reranker_top_k
+            )
+            timing_info["rerank_ms"] = (time.perf_counter() - rerank_start) * 1000
+            timing_info["pre_rerank_count"] = len(filtered_chunks)
+            timing_info["post_rerank_count"] = len(reranked_chunks)
+            filtered_chunks = reranked_chunks
+            logger.info(
+                f"[RERANK] Reranked {timing_info['pre_rerank_count']} -> {timing_info['post_rerank_count']} chunks "
+                f"in {timing_info['rerank_ms']:.2f}ms"
+            )
+
+        # 4. Check response cache (Redis exact match)
         if self.cache_service:
             cached_response = await self.cache_service.get_response(
                 query_text,

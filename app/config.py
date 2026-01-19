@@ -24,6 +24,25 @@ class Settings(BaseSettings):
     # Semantic cache configuration
     semantic_cache_similarity_threshold: float = 0.90  # Cosine similarity threshold for cache hits
 
+    # Hybrid search configuration (Phase 1)
+    hybrid_search_enabled: bool = True
+    hybrid_search_rrf_k: int = 60  # RRF constant (typically 60)
+
+    # Reranking configuration (Phase 2)
+    reranker_enabled: bool = False
+    reranker_provider: str = "cohere"  # Options: "cohere", "jina", "bge"
+    reranker_model: str = "rerank-english-v3.0"
+    reranker_top_k: int = 5  # Return top N after reranking
+    cohere_api_key: str = ""
+
+    # Embedding model configuration (Phase 3)
+    embedding_model: str = "text-embedding-3-small"  # or "text-embedding-3-large"
+    embedding_dimensions: int = 1536  # 1536 for small, 2000 for large (HNSW limit)
+
+    # Contextual retrieval configuration (Phase 4)
+    contextual_retrieval_enabled: bool = False
+    contextual_context_window: int = 3  # Include N surrounding chunks for context
+
     class Config:
         """
         Configuration for the application settings

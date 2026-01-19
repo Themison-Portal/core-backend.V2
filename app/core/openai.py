@@ -1,5 +1,9 @@
 """
 AI client - Using OpenAI for both LLM and embeddings
+
+Supports configurable embedding models:
+- text-embedding-3-small (1536 dims) - Default, cost-effective
+- text-embedding-3-large (3072 dims) - Higher quality, 6.5x cost
 """
 
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
@@ -9,10 +13,24 @@ from app.schemas.rag_docling_schema import DoclingRagStructuredResponse
 
 settings = get_settings()
 
-# OpenAI for embeddings
+# OpenAI for embeddings - configurable model and dimensions
 embedding_client = OpenAIEmbeddings(
+    model=settings.embedding_model,
+    dimensions=settings.embedding_dimensions,
+    api_key=settings.openai_api_key
+)
+
+# For migration period: separate clients for small and large embeddings
+# Use these when backfilling or during dual-write migration
+embedding_client_small = OpenAIEmbeddings(
     model="text-embedding-3-small",
-    dimensions=1536,  # Reduce from 3072 to 1536 for Supabase pgvector compatibility
+    dimensions=1536,
+    api_key=settings.openai_api_key
+)
+
+embedding_client_large = OpenAIEmbeddings(
+    model="text-embedding-3-large",
+    dimensions=2000,  # Reduced from 3072 due to HNSW index limit
     api_key=settings.openai_api_key
 )
 
