@@ -67,9 +67,16 @@ allowed_origins = [
     "https://core-frontendv2.vercel.app",
     "https://core-frontendv2-biobert.vercel.app",
     "https://core-frontend-v3.vercel.app",
+    "https://core-frontend-v3-improvements.vercel.app",
+    "https://core-frontend-preview.vercel.app",
     "http://localhost:8080",
     "http://localhost:5173",
 ]
+
+# Add FRONTEND_URL from environment if set
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url and frontend_url not in allowed_origins:
+    allowed_origins.append(frontend_url)
 
 app.add_middleware(
     CORSMiddleware,
