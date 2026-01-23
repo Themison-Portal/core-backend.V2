@@ -298,10 +298,15 @@ class RagRetrievalService(IRagRetrievalService):
         self,
         query_text: str,
         document_id: UUID,
-        top_k: int = 20,
-        min_score: float = 0.04,
+        top_k: int = None,
+        min_score: float = None,
         precomputed_embedding: Optional[List[float]] = None
     ) -> tuple[List[dict], dict]:
+        # Use config defaults if not provided
+        if top_k is None:
+            top_k = settings.retrieval_top_k
+        if min_score is None:
+            min_score = settings.retrieval_min_score
         """
         Public method to retrieve and format top similar chunks for a query.
         Returns (chunks, timing_info).
@@ -336,9 +341,16 @@ class RagRetrievalService(IRagRetrievalService):
             )
         timing_info.update(search_timing)
 
-        # Filter by relevance
-        filtered_chunks = [d for d in raw_chunks if d["score"] >= min_score]
-        logger.info(f"[CACHE] Chunks [MISS] - Vector search returned {len(raw_chunks)} chunks, filtered to {len(filtered_chunks)} (min_score={min_score})")
+        # Filter by relevance (only for vector-only search, not hybrid)
+        # RRF scores are much smaller (0.01-0.03) than cosine similarity (0.5-1.0)
+        if settings.hybrid_search_enabled:
+            # For hybrid search, RRF already ranks by relevance - just take top results
+            filtered_chunks = raw_chunks
+            logger.info(f"[CACHE] Chunks [MISS] - Hybrid search returned {len(raw_chunks)} chunks (RRF-ranked, no min_score filter)")
+        else:
+            # For vector-only search, filter by cosine similarity threshold
+            filtered_chunks = [d for d in raw_chunks if d["score"] >= min_score]
+            logger.info(f"[CACHE] Chunks [MISS] - Vector search returned {len(raw_chunks)} chunks, filtered to {len(filtered_chunks)} (min_score={min_score})")
 
         # Cache results
         if self.cache_service and filtered_chunks:

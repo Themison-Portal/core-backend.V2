@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     hybrid_search_enabled: bool = True
     hybrid_search_rrf_k: int = 60  # RRF constant (typically 60)
 
+    # Retrieval configuration
+    retrieval_min_score: float = 0.04  # Minimum cosine similarity for vector-only search
+    retrieval_top_k: int = 20  # Number of chunks to retrieve
+
     # Reranking configuration (Phase 2)
     reranker_enabled: bool = False
     reranker_provider: str = "cohere"  # Options: "cohere", "jina", "bge"
