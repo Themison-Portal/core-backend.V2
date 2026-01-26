@@ -201,7 +201,13 @@ class RagIngestionService(IRagIngestionService):
             )
 
             logger.info("PDF ingestion complete")
-            return document_record
+            return {
+                "success": True,
+                "document_id": document_id,
+                "status": "ready",
+                "chunks_count": len(docs),
+                "created_at": document_record.created_at,
+            }
 
         except Exception as e:
             raise RuntimeError(f"PDF ingestion failed: {str(e)}")

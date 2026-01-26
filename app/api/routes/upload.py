@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.contracts.document import DocumentResponse
+from app.contracts.document import UploadPdfResponse
 from app.dependencies.auth import get_current_user
 from app.dependencies.documents import get_document_service
 from app.services.indexing.document_service import DocumentService
@@ -25,7 +25,7 @@ class UploadDocumentRequest(BaseModel):
     document_id: UUID
     chunk_size: Optional[int] = 750
 
-@router.post("/upload-pdf", response_model=DocumentResponse)
+@router.post("/upload-pdf", response_model=UploadPdfResponse)
 async def upload_pdf_document(
     request: UploadDocumentRequest,
     user = Depends(get_current_user),

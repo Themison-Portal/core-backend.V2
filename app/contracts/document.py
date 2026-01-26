@@ -64,6 +64,16 @@ class DocumentResponse(DocumentBase, TimestampedContract):
         "from_attributes": True
     }
     
+class UploadPdfResponse(BaseContract):
+    """
+    Response contract for the upload-pdf endpoint.
+    """
+    success: bool
+    document_id: UUID
+    status: str
+    chunks_count: int
+    created_at: datetime
+
 class DocumentUpload(BaseContract):
     """
     A contract for uploading a document.
