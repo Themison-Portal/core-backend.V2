@@ -194,9 +194,9 @@ class RagIngestionService(IRagIngestionService):
                 # Standard embedding without contextual enhancement
                 chunk_embeddings = await self.embedding_client.aembed_documents(texts)
 
-            document_record = await self._insert_docling_chunks(
-                document_id, docs, chunk_embeddings, contextual_summaries
-            )
+            #document_record = await self._insert_docling_chunks(
+            #    document_id, docs, chunk_embeddings, contextual_summaries
+            #)
 
             logger.info("PDF ingestion complete")
             return {
@@ -204,7 +204,7 @@ class RagIngestionService(IRagIngestionService):
                 "document_id": document_id,
                 "status": "ready",
                 "chunks_count": len(docs),
-                "created_at": document_record.created_at,
+                "created_at": datetime.now(),
             }
 
         except Exception as e:
