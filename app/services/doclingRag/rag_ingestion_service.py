@@ -1,4 +1,5 @@
 import logging
+import httpx
 from typing import List, Optional, TYPE_CHECKING
 from uuid import UUID
 from datetime import datetime
@@ -9,7 +10,6 @@ from sqlalchemy import delete
 from langchain_core.documents import Document
 from uuid import uuid4
 
-from app.models.documents import Document as DocumentTable
 from app.models.chunks_docling import DocumentChunkDocling
 from app.services.doclingRag.interfaces.rag_ingestion_service import IRagIngestionService
 from app.core.openai import embedding_client
@@ -87,6 +87,7 @@ class RagIngestionService(IRagIngestionService):
     async def _insert_docling_chunks(
         self,
         document_id: UUID,
+        document_url: str,
         chunks: List[Document],
         embeddings: List[List[float]],
         contextual_summaries: Optional[List[str]] = None,
@@ -100,9 +101,10 @@ class RagIngestionService(IRagIngestionService):
         await self.ensure_tables_exist()  # Make sure table exists
 
         try:
-            document = await self.db.get(DocumentTable, document_id)
-            if not document:
-                raise ValueError(f"Document {document_id} not found.")
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(document_url)
+                resp.raise_for_status()
+                document = resp.content  # PDF bytes
 
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
                 citation_meta = self._extract_docling_citation_metadata(chunk.metadata)
@@ -114,7 +116,7 @@ class RagIngestionService(IRagIngestionService):
 
                 chunk_record = DocumentChunkDocling(
                     id=uuid4(),
-                    document_id=document.id,
+                    document_id=document_id,
                     content=chunk.page_content,
                     page_number=citation_meta["page_number"],
                     chunk_metadata={**chunk.metadata, "chunk_index": i},
@@ -194,9 +196,9 @@ class RagIngestionService(IRagIngestionService):
                 # Standard embedding without contextual enhancement
                 chunk_embeddings = await self.embedding_client.aembed_documents(texts)
 
-            #document_record = await self._insert_docling_chunks(
-            #    document_id, docs, chunk_embeddings, contextual_summaries
-            #)
+            document_record = await self._insert_docling_chunks(
+                document_id, document_url, docs, chunk_embeddings, contextual_summaries
+            )
 
             logger.info("PDF ingestion complete")
             return {
