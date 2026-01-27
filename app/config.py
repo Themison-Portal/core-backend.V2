@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     supabase_db_password: str = ""  # Optional
     redis_url: str = ""
     frontend_url: str = "http://localhost:3000"  # Optional with default
+    upload_api_key: str = ""  # API key for upload endpoint (X-API-KEY header)
 
     # Semantic cache configuration
     semantic_cache_similarity_threshold: float = 0.90  # Cosine similarity threshold for cache hits

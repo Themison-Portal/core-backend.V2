@@ -8,7 +8,6 @@ class IRagIngestionService:
         document_url: str,
         document_id: UUID,
         chunk_size: int = 750,
-        user_id: UUID | None = None,
     ) -> None:
         """Complete ingestion pipeline for a document"""
         pass

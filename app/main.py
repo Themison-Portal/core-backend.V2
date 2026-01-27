@@ -101,13 +101,13 @@ app.include_router(
     tags=["auth"]
 )
 
-# Protected routes
 app.include_router(
     upload_router,
     prefix="/upload",
     tags=["upload"],
-    dependencies=[Depends(auth.verify_jwt)]
 )
+
+# Protected routes
 
 app.include_router(
     query_router,

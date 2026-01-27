@@ -89,7 +89,6 @@ class RagIngestionService(IRagIngestionService):
         document_id: UUID,
         chunks: List[Document],
         embeddings: List[List[float]],
-        user_id: UUID = None,
         contextual_summaries: Optional[List[str]] = None,
     ):
         """
@@ -140,7 +139,6 @@ class RagIngestionService(IRagIngestionService):
         document_url: str,
         document_id: UUID,
         chunk_size: int = 750,
-        user_id: UUID = None,
     ):
         """
         Complete ingestion pipeline for a PDF:
@@ -197,7 +195,7 @@ class RagIngestionService(IRagIngestionService):
                 chunk_embeddings = await self.embedding_client.aembed_documents(texts)
 
             document_record = await self._insert_docling_chunks(
-                document_id, docs, chunk_embeddings, user_id, contextual_summaries
+                document_id, docs, chunk_embeddings, contextual_summaries
             )
 
             logger.info("PDF ingestion complete")

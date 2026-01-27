@@ -5,13 +5,11 @@ Upload routes
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from app.contracts.document import UploadPdfResponse
-from app.dependencies.auth import get_current_user
-from app.dependencies.documents import get_document_service
-from app.services.indexing.document_service import DocumentService
+from app.config import get_settings
 from app.dependencies.rag import get_rag_ingestion_service
 from app.services.doclingRag.rag_ingestion_service import RagIngestionService
 
@@ -28,12 +26,16 @@ class UploadDocumentRequest(BaseModel):
 @router.post("/upload-pdf", response_model=UploadPdfResponse)
 async def upload_pdf_document(
     request: UploadDocumentRequest,
-    user = Depends(get_current_user),
     rag_service: RagIngestionService = Depends(get_rag_ingestion_service),
+    x_api_key: str = Header(...),
 ):
     """
     Upload a PDF document
     """
+    settings = get_settings()
+    if not settings.upload_api_key or x_api_key != settings.upload_api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
     # Validate file type
     if not request.document_url.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
@@ -45,7 +47,6 @@ async def upload_pdf_document(
         result = await rag_service.ingest_pdf(
             document_url=request.document_url,
             document_id=request.document_id,
-            user_id=user["id"]            
         )
         
         return result
