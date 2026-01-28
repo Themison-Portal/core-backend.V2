@@ -79,6 +79,7 @@ class RagRetrievalService(IRagRetrievalService):
         self,
         query_text: str,
         document_id: UUID,
+        document_name: str,
         top_k: int = 20,
         precomputed_embedding: Optional[List[float]] = None,
     ) -> tuple[List[dict], dict]:
@@ -87,6 +88,7 @@ class RagRetrievalService(IRagRetrievalService):
         Returns (chunks, timing_info).
 
         Args:
+            document_name: Name of the document (passed from caller, no DB lookup needed).
             precomputed_embedding: If provided, skip embedding generation (for semantic cache flow).
         """
         timing_info = {}
@@ -102,16 +104,14 @@ class RagRetrievalService(IRagRetrievalService):
 
         query_vector = self._embedding_to_pg_vector(query_vector)
 
-        # Query database
+        # Query database (no JOIN needed - document_name passed from caller)
         sql = text("""
             SELECT
                 pc.content,
                 pc.page_number,
                 pc.chunk_metadata,
-                p.document_name,
                 1 - (pc.embedding <=> (:v)::vector) AS similarity
             FROM document_chunks_docling pc
-            JOIN trial_documents p ON pc.document_id = p.id
             WHERE pc.document_id = :pid
             ORDER BY pc.embedding <=> (:v)::vector
             LIMIT :k
@@ -123,13 +123,13 @@ class RagRetrievalService(IRagRetrievalService):
         timing_info["db_search_ms"] = (time.perf_counter() - db_start) * 1000
         logger.info(f"[TIMING] Vector search (pgvector HNSW): {timing_info['db_search_ms']:.2f}ms, found {len(rows)} chunks")
 
-        # Format results
+        # Format results (use provided document_name)
         docs = [
             {
                 "page_content": row.content,
                 "score": float(row.similarity),
                 "metadata": {
-                    "title": row.document_name,
+                    "title": document_name,
                     "page": row.page_number,
                     "docling": row.chunk_metadata,
                 },
@@ -143,11 +143,15 @@ class RagRetrievalService(IRagRetrievalService):
         self,
         query_text: str,
         document_id: UUID,
+        document_name: str,
         top_k: int = 20
     ) -> List[dict]:
         """
         Full-text BM25 search using PostgreSQL tsvector.
         Returns chunks ranked by text relevance.
+
+        Args:
+            document_name: Name of the document (passed from caller, no DB lookup needed).
         """
         sql = text("""
             SELECT
@@ -155,10 +159,8 @@ class RagRetrievalService(IRagRetrievalService):
                 pc.content,
                 pc.page_number,
                 pc.chunk_metadata,
-                p.document_name,
                 ts_rank(pc.content_tsv, plainto_tsquery('english', :query)) AS bm25_score
             FROM document_chunks_docling pc
-            JOIN trial_documents p ON pc.document_id = p.id
             WHERE pc.document_id = :pid
               AND pc.content_tsv @@ plainto_tsquery('english', :query)
             ORDER BY bm25_score DESC
@@ -171,14 +173,14 @@ class RagRetrievalService(IRagRetrievalService):
         bm25_time = (time.perf_counter() - db_start) * 1000
         logger.info(f"[TIMING] BM25 search (PostgreSQL GIN): {bm25_time:.2f}ms, found {len(rows)} chunks")
 
-        # Format results with unique IDs for RRF fusion
+        # Format results with unique IDs for RRF fusion (use provided document_name)
         docs = [
             {
                 "id": str(row.id),
                 "page_content": row.content,
                 "score": float(row.bm25_score),
                 "metadata": {
-                    "title": row.document_name,
+                    "title": document_name,
                     "page": row.page_number,
                     "docling": row.chunk_metadata,
                 },
@@ -252,12 +254,16 @@ class RagRetrievalService(IRagRetrievalService):
         self,
         query_text: str,
         document_id: UUID,
+        document_name: str,
         top_k: int = 20,
         precomputed_embedding: Optional[List[float]] = None,
     ) -> tuple[List[dict], dict]:
         """
         Hybrid search combining vector similarity and BM25 full-text search.
         Runs both searches in parallel and fuses results with RRF.
+
+        Args:
+            document_name: Name of the document (passed to sub-searches).
         """
         timing_info = {"hybrid_search": True}
 
@@ -265,9 +271,9 @@ class RagRetrievalService(IRagRetrievalService):
         hybrid_start = time.perf_counter()
 
         vector_task = self._search_similar_chunks_docling(
-            query_text, document_id, top_k, precomputed_embedding
+            query_text, document_id, document_name, top_k, precomputed_embedding
         )
-        bm25_task = self._search_bm25(query_text, document_id, top_k)
+        bm25_task = self._search_bm25(query_text, document_id, document_name, top_k)
 
         (vector_results, vector_timing), bm25_results = await asyncio.gather(
             vector_task, bm25_task
@@ -298,22 +304,24 @@ class RagRetrievalService(IRagRetrievalService):
         self,
         query_text: str,
         document_id: UUID,
+        document_name: str,
         top_k: int = None,
         min_score: float = None,
         precomputed_embedding: Optional[List[float]] = None
     ) -> tuple[List[dict], dict]:
-        # Use config defaults if not provided
-        if top_k is None:
-            top_k = settings.retrieval_top_k
-        if min_score is None:
-            min_score = settings.retrieval_min_score
         """
         Public method to retrieve and format top similar chunks for a query.
         Returns (chunks, timing_info).
 
         Args:
+            document_name: Name of the document (no DB lookup needed).
             precomputed_embedding: If provided, skip embedding generation (for semantic cache flow).
         """
+        # Use config defaults if not provided
+        if top_k is None:
+            top_k = settings.retrieval_top_k
+        if min_score is None:
+            min_score = settings.retrieval_min_score
         retrieval_start = time.perf_counter()
         timing_info = {"chunk_cache_hit": False}
 
@@ -333,11 +341,11 @@ class RagRetrievalService(IRagRetrievalService):
         # Use hybrid search if enabled, otherwise vector-only
         if settings.hybrid_search_enabled:
             raw_chunks, search_timing = await self._search_hybrid(
-                query_text, document_id, top_k, precomputed_embedding
+                query_text, document_id, document_name, top_k, precomputed_embedding
             )
         else:
             raw_chunks, search_timing = await self._search_similar_chunks_docling(
-                query_text, document_id, top_k, precomputed_embedding
+                query_text, document_id, document_name, top_k, precomputed_embedding
             )
         timing_info.update(search_timing)
 

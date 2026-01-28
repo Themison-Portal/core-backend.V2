@@ -107,12 +107,9 @@ app.include_router(
     tags=["upload"],
 )
 
-# Protected routes
-
 app.include_router(
     query_router,
     prefix="/query",
     tags=["query"],
-    dependencies=[Depends(auth.verify_jwt)]
 )
 

@@ -241,6 +241,7 @@ class RagGenerationService(IRagGenerationService):
         self,
         query_text: str,
         document_id: UUID,
+        document_name: str,
         top_k: int = 15,
         min_score: float = 0.04
     ) -> dict:
@@ -252,6 +253,9 @@ class RagGenerationService(IRagGenerationService):
         1. Semantic cache (similarity >= 0.90, fastest for similar queries)
         2. Redis response cache (exact match)
         3. Claude API call (slowest)
+
+        Args:
+            document_name: Name of the document (passed to retrieval, no DB lookup needed).
 
         Returns dict with 'result' (DoclingRagStructuredResponse) and 'timing' info.
         """
@@ -295,6 +299,7 @@ class RagGenerationService(IRagGenerationService):
         filtered_chunks, retrieval_timing = await self.retrieval_service.retrieve_similar_chunks(
             query_text=query_text,
             document_id=document_id,
+            document_name=document_name,
             top_k=top_k,
             min_score=min_score,
             precomputed_embedding=query_embedding
