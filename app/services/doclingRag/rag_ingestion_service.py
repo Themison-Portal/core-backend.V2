@@ -1,6 +1,6 @@
 import logging
 import httpx
-from typing import List, Optional, TYPE_CHECKING
+from typing import Callable, List, Optional, TYPE_CHECKING
 from uuid import UUID
 from datetime import datetime
 
@@ -210,6 +210,103 @@ class RagIngestionService(IRagIngestionService):
             }
 
         except Exception as e:
+            raise RuntimeError(f"PDF ingestion failed: {str(e)}")
+
+    async def ingest_pdf_with_progress(
+        self,
+        document_url: str,
+        document_id: UUID,
+        progress_callback: Optional[Callable[[str, int], None]] = None,
+        chunk_size: int = 750,
+    ):
+        """
+        Complete ingestion pipeline with progress reporting for async processing.
+
+        Args:
+            document_url: URL of the PDF to ingest
+            document_id: UUID of the document
+            progress_callback: async callable(stage, chunks_count) for progress updates
+            chunk_size: Token size for chunks (default 750)
+
+        Stages reported: cache_invalidation, parsing, chunking, embedding, storing, done
+        """
+        async def report_progress(stage: str, chunks_count: Optional[int] = None):
+            if progress_callback:
+                await progress_callback(stage, chunks_count)
+
+        try:
+            # Stage: cache_invalidation (10%)
+            await report_progress("cache_invalidation")
+
+            if self.cache_service:
+                deleted_count = await self.cache_service.invalidate_document(document_id)
+                if deleted_count > 0:
+                    logger.info(f"Invalidated {deleted_count} Redis cached entries for document {document_id}")
+
+            if self.semantic_cache_service:
+                deleted_semantic = await self.semantic_cache_service.invalidate_document(document_id)
+                if deleted_semantic > 0:
+                    logger.info(f"Invalidated {deleted_semantic} semantic cache entries for document {document_id}")
+
+            # Delete existing chunks for re-ingestion
+            deleted_chunks = await self._delete_existing_chunks(document_id)
+            if deleted_chunks > 0:
+                logger.info(f"Deleted {deleted_chunks} existing chunks for document {document_id}")
+
+            # Stage: parsing (20%)
+            await report_progress("parsing")
+
+            tokenizer = get_tokenizer()
+            loader = DoclingLoader(
+                file_path=document_url,
+                export_type=ExportType.DOC_CHUNKS,
+                chunker=HybridChunker(tokenizer=tokenizer, chunk_size=chunk_size),
+            )
+            docs = loader.load()
+            texts = [doc.page_content for doc in docs]
+
+            # Stage: chunking (40%)
+            await report_progress("chunking", len(docs))
+
+            # Optional: Generate contextual summaries if enabled
+            contextual_summaries = None
+            if self.contextual_service:
+                logger.info(f"Generating contextual summaries for {len(texts)} chunks...")
+                context_results = await self.contextual_service.process_chunks_with_context(texts)
+
+                contextual_summaries = [r["summary"] for r in context_results]
+                contextualized_texts = [r["contextualized"] for r in context_results]
+                logger.info(f"Generated {len(contextual_summaries)} contextual summaries")
+
+            # Stage: embedding (60%)
+            await report_progress("embedding", len(docs))
+
+            if self.contextual_service and contextual_summaries:
+                chunk_embeddings = await self.embedding_client.aembed_documents(contextualized_texts)
+            else:
+                chunk_embeddings = await self.embedding_client.aembed_documents(texts)
+
+            # Stage: storing (80%)
+            await report_progress("storing", len(docs))
+
+            await self._insert_docling_chunks(
+                document_id, document_url, docs, chunk_embeddings, contextual_summaries
+            )
+
+            # Stage: done (100%)
+            await report_progress("done", len(docs))
+
+            logger.info("PDF ingestion complete")
+            return {
+                "success": True,
+                "document_id": document_id,
+                "status": "ready",
+                "chunks_count": len(docs),
+                "created_at": datetime.now(),
+            }
+
+        except Exception as e:
+            logger.error(f"PDF ingestion failed: {str(e)}")
             raise RuntimeError(f"PDF ingestion failed: {str(e)}")
 
     async def ensure_tables_exist(self):

@@ -79,3 +79,28 @@ class DocumentUpload(BaseContract):
     A contract for uploading a document.
     """
     document_url: str
+
+
+class AsyncUploadResponse(BaseContract):
+    """
+    Response contract for async upload-pdf endpoint.
+    Returns immediately while processing happens in background.
+    """
+    document_id: UUID
+    status: str  # "pending"
+    message: str
+
+
+class JobStatusResponse(BaseContract):
+    """
+    Response contract for ingestion job status polling.
+    """
+    document_id: UUID
+    status: str  # pending | processing | completed | failed
+    stage: str  # starting | cache_invalidation | parsing | chunking | embedding | storing | done
+    progress: int  # 0-100
+    chunks_count: Optional[int] = None
+    error: Optional[str] = None
+    started_at: str
+    updated_at: str
+    completed_at: Optional[str] = None
