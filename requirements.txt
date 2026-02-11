@@ -8,7 +8,8 @@ numpy
 huggingface-hub
 sentence-transformers
 transformers
-openai
+openai>=1.54.0
+anthropic>=0.40.0  # Required for Claude Opus 4.5
 vecs
 torch
 langchain_huggingface
@@ -36,4 +37,7 @@ PyMuPDF
 redis
 Jinja2
 docling
+
+# --- Reranking packages ---
+cohere>=5.0.0
 

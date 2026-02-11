@@ -4,7 +4,7 @@ Main application file
 
 import os
 import sys
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -18,7 +18,9 @@ from contextlib import asynccontextmanager
 from redis.asyncio import Redis
 import logging
 
-# load_dotenv()
+# Load environment variables from .env file
+load_dotenv()
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Application state for storing loaded models
@@ -35,7 +37,6 @@ async def lifespan(app: FastAPI):
         # --- 1) Connect to Redis ---
         try:
             redis_url = os.getenv("REDIS_URL")
-            # redis_client = Redis(host="localhost", port=6379, db=0, decode_responses=False)
             redis_client = Redis.from_url(redis_url, decode_responses=False)
             await redis_client.ping()
             app.state.redis_client = redis_client
@@ -66,9 +67,16 @@ allowed_origins = [
     "https://core-frontendv2.vercel.app",
     "https://core-frontendv2-biobert.vercel.app",
     "https://core-frontend-v3.vercel.app",
+    "https://core-frontend-v3-improvements.vercel.app",
+    "https://core-frontend-preview.vercel.app",
     "http://localhost:8080",
     "http://localhost:5173",
 ]
+
+# Add FRONTEND_URL from environment if set
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url and frontend_url not in allowed_origins:
+    allowed_origins.append(frontend_url)
 
 app.add_middleware(
     CORSMiddleware,
@@ -93,18 +101,15 @@ app.include_router(
     tags=["auth"]
 )
 
-# Protected routes
 app.include_router(
     upload_router,
     prefix="/upload",
     tags=["upload"],
-    dependencies=[Depends(auth.verify_jwt)]
 )
 
 app.include_router(
     query_router,
     prefix="/query",
     tags=["query"],
-    dependencies=[Depends(auth.verify_jwt)]
 )
 

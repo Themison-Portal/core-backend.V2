@@ -63,8 +63,11 @@ db.sqlite3-journal
 
 # Environment variables
 .env
-.env.local
 .env.*.local
+
+# Docker volumes
+postgres_data/
+redis_data/
 
 # Documentation
 docs/_build/
