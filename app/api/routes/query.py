@@ -77,6 +77,7 @@ async def process_query(
         query_text=request.query,
         document_id=request.document_id,
         document_name=request.document_name,
+        highlight_mode=True
     )
 
     total_time = (time.perf_counter() - total_start) * 1000
