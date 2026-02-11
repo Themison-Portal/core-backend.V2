@@ -71,15 +71,32 @@ class RagGenerationService(IRagGenerationService):
         dl_meta = meta.get("docling", {}).get("dl_meta", {})
         doc_items = dl_meta.get("doc_items", [])
 
-        bbox = None
-        if doc_items:
-            prov = doc_items[0].get("prov", [])
-            if prov:
-                raw_bbox = prov[0].get("bbox")
+        # bbox = None
+        # if doc_items:
+        #     prov = doc_items[0].get("prov", [])
+        #     if prov:
+        #         raw_bbox = prov[0].get("bbox")
+        #         if isinstance(raw_bbox, dict):
+        #             bbox = [raw_bbox.get("l"), raw_bbox.get("t"), raw_bbox.get("r"), raw_bbox.get("b")]
+        #         else:
+        #             bbox = raw_bbox
+        bboxes = []
+        for item in doc_items:
+            prov = item.get("prov", [])
+            if not prov:
+                continue
+            # Iterate through all provenance entries, collect valid bboxes
+            for p in prov:
+                raw_bbox = p.get("bbox")
+                if not raw_bbox:
+                    continue
+                
                 if isinstance(raw_bbox, dict):
                     bbox = [raw_bbox.get("l"), raw_bbox.get("t"), raw_bbox.get("r"), raw_bbox.get("b")]
                 else:
                     bbox = raw_bbox
+                bboxes.append(bbox)
+        bbox = bboxes[0] if len(bboxes) == 1 else bboxes
 
         title = meta.get("title", "Unknown")
         page = dl_meta.get("page_no") or meta.get("page") or 0
@@ -243,7 +260,8 @@ class RagGenerationService(IRagGenerationService):
         document_id: UUID,
         document_name: str,
         top_k: int = 15,
-        min_score: float = 0.04
+        min_score: float = 0.04,
+        highlight_mode: bool = False
     ) -> dict:
         """
         Generate answer with timing information.
@@ -351,24 +369,45 @@ class RagGenerationService(IRagGenerationService):
                     "timing": timing_info
                 }
 
-        # 3. Compress chunks (merge same-page chunks)
-        compression_start = time.perf_counter()
-        compressed_chunks = self._compress_chunks(filtered_chunks)
-        timing_info["compression_ms"] = (time.perf_counter() - compression_start) * 1000
-        timing_info["compressed_chunk_count"] = len(compressed_chunks)
-        timing_info["chunks_compressed"] = len(compressed_chunks) < len(filtered_chunks)
+        # # 3. Compress chunks (merge same-page chunks)
+        # compression_start = time.perf_counter()
+        # compressed_chunks = self._compress_chunks(filtered_chunks)
+        # timing_info["compression_ms"] = (time.perf_counter() - compression_start) * 1000
+        # timing_info["compressed_chunk_count"] = len(compressed_chunks)
+        # timing_info["chunks_compressed"] = len(compressed_chunks) < len(filtered_chunks)
+
+        # 3. Decide pipeline mode
+        pipeline_start = time.perf_counter()
+
+        if highlight_mode:
+            logger.info("[PIPELINE] Highlight mode enabled - skipping compression")
+            context_chunks = [
+            self._extract_chunk_metadata(chunk)
+            for chunk in filtered_chunks
+            ]
+            timing_info["chunks_compressed"] = False
+            timing_info["compressed_chunk_count"] = len(context_chunks)
+            timing_info["compression_ms"] = 0
+        else:
+            logger.info("[PIPELINE] Summary mode - applying compression")
+            compression_start = time.perf_counter()
+            context_chunks = self._compress_chunks(filtered_chunks)
+            timing_info["compression_ms"] = (time.perf_counter() - compression_start) * 1000
+            timing_info["compressed_chunk_count"] = len(context_chunks)
+            timing_info["chunks_compressed"] = len(context_chunks) < len(filtered_chunks)
 
         # 4. Format context with compact format
         format_start = time.perf_counter()
         formatted_context = "\n\n".join([
-            self._format_context_compact(chunk) for chunk in compressed_chunks
+            self._format_context_compact(chunk) for chunk in context_chunks
         ])
         timing_info["context_format_ms"] = (time.perf_counter() - format_start) * 1000
+
 
         # Log token estimates
         context_chars = len(formatted_context)
         estimated_tokens = context_chars // 4
-        logger.info(f"[TIMING] Context: {context_chars} chars (~{estimated_tokens} tokens), {len(compressed_chunks)} chunks")
+        logger.info(f"[TIMING] Context: {context_chars} chars (~{estimated_tokens} tokens), {len(context_chunks)} chunks")
 
         # 5. Call Claude Opus 4.5 for generation
         llm_start = time.perf_counter()
